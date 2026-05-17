@@ -555,7 +555,8 @@ img {
       color-mix(in srgb, var(--color-brand) 74%, transparent) 46%,
       color-mix(in srgb, var(--color-brand) 22%, transparent)
     ),
-    var(--hero-bg-image, url("https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1800&q=82"));
+    var(--hero-bg-image, none);
+  background-color: var(--color-brand);
   background-position: center;
   background-size: cover;
   color: var(--color-on-dark);
@@ -1511,7 +1512,7 @@ img {
     max-width: 160px;
   }
 
-  .btn-header,
+  .header-actions .btn-header,
   .header-actions .icon-action:not(.menu-toggle) {
     display: none;
   }

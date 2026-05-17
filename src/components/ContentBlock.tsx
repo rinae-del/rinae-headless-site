@@ -110,6 +110,9 @@ function resolveSourceValue(field: CmsField, context: CmsRenderContext) {
   if (source === "description" || source === "pagedescription") {
     return page.meta?.description || settings.site.description || business.short_description;
   }
+  if (source === "ogimage" || source === "image" || source === "heroimage") {
+    return page.meta?.og_image || settings.seo?.default_og_image;
+  }
   if (source === "sitename") return settings.site.name;
   if (source === "businessname" || source === "companyname") return business.name;
   if (source === "businessdescription" || source === "shortdescription") {
@@ -165,7 +168,11 @@ function fieldString(
 }
 
 function parseArrayValue(value: unknown): SectionItem[] {
-  if (Array.isArray(value)) return value as SectionItem[];
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      typeof item === "string" ? { label: item, title: item } : (item as SectionItem),
+    );
+  }
   if (typeof value !== "string" || !value.trim()) return [];
 
   try {
@@ -263,6 +270,46 @@ function buttonHref(block: CmsBlock) {
   return stringFrom(block.linkValue || block.url || block.href) || "#";
 }
 
+function buttonStyle(value: string, fallback: string) {
+  const normalized = value.toLowerCase();
+  return ["primary", "secondary", "outline", "ghost"].includes(normalized)
+    ? normalized
+    : fallback;
+}
+
+function heroActions(block: CmsBlock, context: CmsRenderContext) {
+  const listedActions = parseArrayValue(fieldRaw(block, ["actions", "buttons", "ctas", "links"], context))
+    .map((item, index) => ({
+      label: itemText(item, ["label", "title", "text", "heading"]),
+      href: itemText(item, ["href", "url", "link", "linkValue", "link_value"]),
+      style: buttonStyle(
+        itemText(item, ["style", "variant"]),
+        index === 0 ? "primary" : "secondary",
+      ),
+    }))
+    .filter((item) => item.label);
+
+  if (listedActions.length) return listedActions;
+
+  const primaryLabel = fieldString(
+    block,
+    ["primary_label", "primary_text", "button_text", "cta_label"],
+    context,
+  );
+  const primaryLink = fieldString(
+    block,
+    ["primary_link", "primary_url", "button_link", "button_url", "cta_link", "cta_url", "link", "linkValue"],
+    context,
+  );
+  const secondaryLabel = fieldString(block, ["secondary_label", "secondary_text"], context);
+  const secondaryLink = fieldString(block, ["secondary_link", "secondary_url"], context);
+
+  return [
+    primaryLabel ? { label: primaryLabel, href: primaryLink, style: "primary" } : null,
+    secondaryLabel ? { label: secondaryLabel, href: secondaryLink, style: "secondary" } : null,
+  ].filter(Boolean) as Array<{ label: string; href: string; style: string }>;
+}
+
 function StarRating({ rating }: { rating: number }) {
   return (
     <div className="stars" aria-label={`${rating} out of 5 stars`}>
@@ -289,13 +336,10 @@ function HeroSection({ block, context }: Props) {
       context.settings.business.short_description ||
       "",
   );
-  const eyebrow = fieldString(block, ["eyebrow", "kicker", "label"], context, block.section_name || "");
+  const eyebrow = fieldString(block, ["eyebrow", "kicker", "label"], context);
   const image = sectionImage(block, context) || context.page.meta?.og_image || "";
   const metrics = sectionItems(block, context, ["metrics", "stats"]);
-  const primaryLabel = fieldString(block, ["primary_label", "primary_text", "button_text", "cta_label"], context);
-  const primaryLink = fieldString(block, ["primary_link", "button_link", "cta_link", "link"], context, "#contact");
-  const secondaryLabel = fieldString(block, ["secondary_label", "secondary_text"], context);
-  const secondaryLink = fieldString(block, ["secondary_link"], context, "#process");
+  const actions = heroActions(block, context);
   const style = image
     ? ({
         "--hero-bg-image": `url("${image}")`,
@@ -309,20 +353,23 @@ function HeroSection({ block, context }: Props) {
           {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
           <h1 id="hero-title">{title}</h1>
           {description ? <p className="hero-lede">{description}</p> : null}
-          {(primaryLabel || secondaryLabel) ? (
+          {actions.length ? (
             <div className="hero-actions">
-              {primaryLabel ? (
-                <a className="btn btn-primary" href={primaryLink}>
-                  <span>{primaryLabel}</span>
-                  <ArrowRight aria-hidden="true" size={18} />
-                </a>
-              ) : null}
-              {secondaryLabel ? (
-                <a className="btn btn-secondary" href={secondaryLink}>
-                  <span>{secondaryLabel}</span>
-                  <ArrowUpRight aria-hidden="true" size={18} />
-                </a>
-              ) : null}
+              {actions.map((action, index) => {
+                const isPrimary = action.style === "primary";
+                const Icon = isPrimary ? ArrowRight : ArrowUpRight;
+
+                return (
+                  <a
+                    className={`btn btn-${action.style}`}
+                    href={action.href || "#"}
+                    key={`${action.label}-${index}`}
+                  >
+                    <span>{action.label}</span>
+                    <Icon aria-hidden="true" size={18} />
+                  </a>
+                );
+              })}
             </div>
           ) : null}
           {metrics.length ? (

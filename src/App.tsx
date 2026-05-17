@@ -101,9 +101,9 @@ function splitHero(page: CmsPage): {
       section_slug: "hero-banner",
       section_name: "Hero",
       fields: [
-        { key: "heading", value: page.title },
-        { key: "description", value: page.meta?.description || "" },
-        { key: "background_image", value: page.meta?.og_image || "" },
+        { key: "heading", source_field: "title", locked: true, value: "" },
+        { key: "description", source_field: "description", locked: true, value: "" },
+        { key: "background_image", source_field: "og_image", locked: true, value: "" },
       ],
     },
     left,
@@ -280,6 +280,27 @@ function NavLink({ item, onClick }: { item: NavItem; onClick?: () => void }) {
   );
 }
 
+function canRenderNavCta(item?: NavItem) {
+  return Boolean(item?.url && item.type !== "label" && !item.children?.length);
+}
+
+function NavCta({ item, onClick }: { item: NavItem; onClick?: () => void }) {
+  const url = item.url || "#";
+
+  return (
+    <a
+      className="btn btn-header"
+      href={url}
+      target={item.open_in_new_tab ? "_blank" : undefined}
+      rel={item.open_in_new_tab || isExternalUrl(url) ? "noreferrer" : undefined}
+      onClick={onClick}
+    >
+      <span>{item.label}</span>
+      <ArrowUpRight aria-hidden="true" size={17} />
+    </a>
+  );
+}
+
 function PageContent({
   left,
   right,
@@ -379,6 +400,14 @@ export default function App() {
   const business = settings.business;
   const companyName = business.name || settings.site.name || "Rinae Web Studio";
   const navItems = useMemo(() => sortedNav(navigation), [navigation]);
+  const headerCta = useMemo(() => {
+    const lastItem = navItems[navItems.length - 1];
+    return canRenderNavCta(lastItem) ? lastItem : undefined;
+  }, [navItems]);
+  const primaryNavItems = useMemo(
+    () => (headerCta ? navItems.slice(0, -1) : navItems),
+    [headerCta, navItems],
+  );
   const footerItems = useMemo(
     () => sortedNav(footerNavigation.length ? footerNavigation : navigation),
     [footerNavigation, navigation],
@@ -415,7 +444,7 @@ export default function App() {
           </a>
 
           <nav className="nav-menu" aria-label="Primary navigation">
-            {navItems.map((item) => (
+            {primaryNavItems.map((item) => (
               <div className="nav-item" key={item.id}>
                 <NavLink item={item} />
                 {item.children?.length ? (
@@ -435,10 +464,7 @@ export default function App() {
                 <Phone aria-hidden="true" size={18} />
               </a>
             ) : null}
-            <a className="btn btn-header" href="#contact">
-              Start
-              <ArrowUpRight aria-hidden="true" size={17} />
-            </a>
+            {headerCta ? <NavCta item={headerCta} /> : null}
             <button
               className="icon-action menu-toggle"
               type="button"
@@ -452,7 +478,7 @@ export default function App() {
         </div>
 
         <div className={navOpen ? "mobile-nav open" : "mobile-nav"}>
-          {navItems.map((item) => (
+          {primaryNavItems.map((item) => (
             <div className="mobile-nav-item" key={item.id}>
               <NavLink item={item} onClick={() => setNavOpen(false)} />
               {item.children?.length ? (
@@ -464,6 +490,7 @@ export default function App() {
               ) : null}
             </div>
           ))}
+          {headerCta ? <NavCta item={headerCta} onClick={() => setNavOpen(false)} /> : null}
         </div>
       </header>
 

@@ -291,33 +291,9 @@ const fallbackSectionBlocks: CmsBlock[] = [
     section_slug: "hero-banner",
     section_name: "Hero Banner",
     fields: [
-      { key: "eyebrow", type: "text", value: "Headless React delivery" },
-      { key: "heading", type: "text", value: "Web development agency for urgent launches" },
-      {
-        key: "description",
-        type: "text",
-        value:
-          "Sleek, CMS-powered websites for teams that need the work to feel premium, move quickly, and stand up to serious scrutiny.",
-      },
-      {
-        key: "background_image",
-        type: "image",
-        value:
-          "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1800&q=82",
-      },
-      { key: "primary_label", type: "text", value: "Start a build" },
-      { key: "primary_link", type: "text", value: "#contact" },
-      { key: "secondary_label", type: "text", value: "View process" },
-      { key: "secondary_link", type: "text", value: "#process" },
-      {
-        key: "metrics",
-        type: "json",
-        value: [
-          { label: "1-3 wk", text: "focused launch windows" },
-          { label: "CMS", text: "Squareflo managed content" },
-          { label: "SEO", text: "metadata and structure ready" },
-        ],
-      },
+      { key: "heading", type: "text", source_field: "title", value: "", locked: true },
+      { key: "description", type: "text", source_field: "description", value: "", locked: true },
+      { key: "background_image", type: "image", source_field: "og_image", value: "", locked: true },
     ],
   },
   {
