@@ -594,6 +594,7 @@ function ContactSection({ block, context }: Props) {
   const email = fieldString(block, ["email", "contact_email"], context, business.email || "");
   const phone = fieldString(block, ["phone", "contact_phone"], context, business.phone || "");
   const formId = fieldString(block, ["form_id", "formId", "contact_form_id"], context, context.formId || "");
+  const submitButtonPreset = String(context.settings.design?.forms?.submitButtonPreset || "primary");
   const image = sectionImage(block, context);
   const style = image
     ? ({
@@ -623,7 +624,12 @@ function ContactSection({ block, context }: Props) {
             ) : null}
           </div>
         </div>
-        <ContactForm form={context.form} formId={formId} email={email} />
+        <ContactForm
+          form={context.form}
+          formId={formId}
+          email={email}
+          submitButtonPreset={submitButtonPreset}
+        />
       </div>
     </section>
   );

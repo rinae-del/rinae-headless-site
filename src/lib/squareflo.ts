@@ -808,19 +808,154 @@ export async function submitForm(formId: string, values: Record<string, string>)
   }>;
 }
 
-function px(value: string | number | undefined) {
-  if (value === undefined || value === "") return undefined;
-  return typeof value === "number" ? `${value}px` : value;
-}
-
-function cssValue(value: string | number | undefined) {
-  if (value === undefined || value === "") return undefined;
+function clean(value: unknown) {
+  if (value === undefined || value === null || value === "") return undefined;
   return String(value);
 }
 
-function setToken(root: HTMLElement, key: string, value: string | number | undefined) {
-  const nextValue = cssValue(value);
+function px(value: unknown) {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "number") return `${value}px`;
+  return String(value);
+}
+
+function percent(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "number") {
+    const normalized = value > 0 && value <= 1 ? value * 100 : value;
+    return `${Math.max(0, Math.min(100, normalized))}%`;
+  }
+  const raw = String(value).trim();
+  if (raw.endsWith("%")) return raw;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? percent(parsed) : undefined;
+}
+
+function textCase(value: unknown) {
+  const raw = clean(value)?.toLowerCase();
+  if (!raw || raw === "none" || raw === "normal") return "none";
+  if (raw === "upper" || raw === "uppercase") return "uppercase";
+  if (raw === "lower" || raw === "lowercase") return "lowercase";
+  if (raw === "title" || raw === "capitalize") return "capitalize";
+  return "none";
+}
+
+function setToken(root: HTMLElement, key: string, value: unknown) {
+  const nextValue = clean(value);
   if (nextValue) root.style.setProperty(key, nextValue);
+}
+
+function getTypography(
+  typography: Record<string, Record<string, string | number>>,
+  key: string,
+  fallback?: Record<string, string | number>,
+) {
+  return typography[key] || fallback || {};
+}
+
+function addTypographyTokens(
+  tokenMap: Record<string, unknown>,
+  prefix: string,
+  values: Record<string, string | number>,
+  fallbackFont?: unknown,
+) {
+  tokenMap[`--font-${prefix}`] = values.fontFamily || fallbackFont;
+  tokenMap[`--type-${prefix}-size`] = px(values.size);
+  tokenMap[`--type-${prefix}-weight`] = values.weight;
+  tokenMap[`--type-${prefix}-line`] = values.lineHeight;
+  tokenMap[`--type-${prefix}-spacing`] = px(values.letterSpacing);
+  tokenMap[`--type-${prefix}-case`] = textCase(values.textCase);
+  tokenMap[`--type-${prefix}-color-light`] = values.colorLight;
+  tokenMap[`--type-${prefix}-color-dark`] = values.colorDark;
+}
+
+function addButtonTokens(
+  tokenMap: Record<string, unknown>,
+  key: "primary" | "secondary" | "outline" | "ghost",
+  values: Record<string, string | number>,
+  fallback?: Record<string, string | number>,
+) {
+  tokenMap[`--button-${key}-bg`] = values.fillColor ?? fallback?.fillColor;
+  tokenMap[`--button-${key}-bg-hover`] =
+    values.fillColorHover ?? fallback?.fillColorHover ?? values.fillColor ?? fallback?.fillColor;
+  tokenMap[`--button-${key}-text`] = values.textColor ?? fallback?.textColor;
+  tokenMap[`--button-${key}-text-hover`] =
+    values.textColorHover ?? fallback?.textColorHover ?? values.textColor ?? fallback?.textColor;
+  tokenMap[`--button-${key}-border-width`] = px(values.borderWidth ?? fallback?.borderWidth ?? 0);
+  tokenMap[`--button-${key}-border`] = values.borderColor ?? fallback?.borderColor ?? "transparent";
+  tokenMap[`--button-${key}-border-hover`] =
+    values.borderColorHover ?? fallback?.borderColorHover ?? values.borderColor ?? fallback?.borderColor;
+  tokenMap[`--button-${key}-radius`] = px(values.borderRadius ?? fallback?.borderRadius);
+  tokenMap[`--button-${key}-font`] = values.fontFamily ?? fallback?.fontFamily;
+  tokenMap[`--button-${key}-font-size`] = px(values.fontSize ?? fallback?.fontSize);
+  tokenMap[`--button-${key}-font-weight`] = values.fontWeight ?? fallback?.fontWeight;
+  tokenMap[`--button-${key}-padding-h`] = px(values.paddingH ?? fallback?.paddingH);
+  tokenMap[`--button-${key}-padding-v`] = px(values.paddingV ?? fallback?.paddingV);
+  tokenMap[`--button-${key}-case`] = textCase(values.textCase ?? fallback?.textCase);
+}
+
+function primaryFontFamily(value: unknown) {
+  return clean(value)
+    ?.split(",")[0]
+    ?.replace(/['"]/g, "")
+    .trim();
+}
+
+function collectFontFamilyNames(settings: SiteSettings) {
+  const families = new Set<string>();
+  const typography = settings.design?.typography || {};
+  const buttons = settings.design?.buttons || {};
+  const forms = settings.design?.forms || {};
+
+  Object.values(typography).forEach((item) => {
+    const family = primaryFontFamily(item.fontFamily);
+    if (family) families.add(family);
+  });
+  Object.values(buttons).forEach((item) => {
+    const family = primaryFontFamily(item.fontFamily);
+    if (family) families.add(family);
+  });
+  [forms.fieldFontFamily, forms.labelFontFamily].forEach((family) => {
+    const nextFamily = primaryFontFamily(family);
+    if (nextFamily) families.add(nextFamily);
+  });
+
+  return [...families].filter((family) => {
+    const normalized = family.toLowerCase();
+    return (
+      !normalized.includes("system-ui") &&
+      !normalized.includes("inherit") &&
+      !normalized.includes("serif") &&
+      !normalized.includes("sans-serif") &&
+      !normalized.includes("monospace")
+    );
+  });
+}
+
+function loadCmsFonts(settings: SiteSettings) {
+  const families = collectFontFamilyNames(settings);
+  const existing = document.getElementById("cms-fonts") as HTMLLinkElement | null;
+
+  if (!families.length) {
+    existing?.remove();
+    return;
+  }
+
+  const params = new URLSearchParams();
+  families.forEach((family) => {
+    const cleanFamily = family.replace(/['"]/g, "").trim().replace(/\s+/g, "+");
+    params.append("family", `${cleanFamily}:wght@300;400;500;600;700;800`);
+  });
+  params.set("display", "swap");
+
+  const href = `https://fonts.googleapis.com/css2?${params.toString()}`;
+  if (existing?.href === href) return;
+
+  const link = existing || document.createElement("link");
+  link.id = "cms-fonts";
+  link.rel = "stylesheet";
+  link.href = href;
+  if (!existing) document.head.appendChild(link);
 }
 
 export function applyDesignTokens(settings: SiteSettings) {
@@ -829,66 +964,76 @@ export function applyDesignTokens(settings: SiteSettings) {
   const typography = settings.design?.typography || {};
   const buttons = settings.design?.buttons || {};
   const forms = settings.design?.forms || {};
+  const body = getTypography(typography, "body");
+  const h1 = getTypography(typography, "h1", body);
+  const h2 = getTypography(typography, "h2", h1);
+  const h3 = getTypography(typography, "h3", h2);
+  const h4 = getTypography(typography, "h4", h3);
+  const h5 = getTypography(typography, "h5", h4);
+  const h6 = getTypography(typography, "h6", h5);
+  const small = getTypography(typography, "small", body);
+  const nav = typography.nav || typography.navItem || typography.navigation || body;
   const primary = buttons.primary || {};
   const secondary = buttons.secondary || {};
   const outline = buttons.outline || {};
   const ghost = buttons.ghost || {};
-  const h1 = typography.h1 || {};
-  const h2 = typography.h2 || {};
-  const body = typography.body || {};
 
-  const tokenMap: Record<string, string | number | undefined> = {
+  const tokenMap: Record<string, unknown> = {
     "--color-brand": colors.brand,
+    "--color-accent-light": colors.accentLight,
+    "--color-accent-dark": colors.accentDark,
+    "--color-bg-text-light": colors.bgTextLight,
+    "--color-bg-text-dark": colors.bgTextDark,
+    "--color-page-bg": colors.pageBg,
     "--color-accent": colors.accentLight,
     "--color-accent-deep": colors.accentDark,
-    "--color-page-bg": colors.pageBg,
     "--color-bg-light": colors.bgTextLight,
     "--color-bg-dark": colors.bgTextDark,
+    "--color-ink": colors.bgTextDark,
+    "--color-on-dark": colors.bgTextLight,
+    "--color-panel": colors.bgTextLight,
     "--font-body": body.fontFamily || h1.fontFamily,
     "--font-heading": h1.fontFamily || body.fontFamily,
-    "--font-h1": h1.fontFamily || body.fontFamily,
-    "--font-h2": h2.fontFamily || h1.fontFamily || body.fontFamily,
     "--type-body-size": px(body.size),
     "--type-body-weight": body.weight,
     "--type-body-line": body.lineHeight,
-    "--type-h1-size": px(h1.size),
-    "--type-h1-weight": h1.weight,
-    "--type-h1-line": h1.lineHeight,
-    "--type-h1-spacing": px(h1.letterSpacing),
-    "--type-h2-size": px(h2.size),
-    "--type-h2-weight": h2.weight,
-    "--type-h2-line": h2.lineHeight,
-    "--type-h2-spacing": px(h2.letterSpacing),
-    "--button-primary-bg": primary.fillColor,
-    "--button-primary-bg-hover": primary.fillColorHover,
-    "--button-primary-text": primary.textColor,
-    "--button-primary-text-hover": primary.textColorHover,
-    "--button-secondary-bg": secondary.fillColor,
-    "--button-secondary-bg-hover": secondary.fillColorHover,
-    "--button-secondary-text": secondary.textColor,
-    "--button-secondary-border": secondary.borderColor,
-    "--button-outline-bg": outline.fillColor,
-    "--button-outline-text": outline.textColor,
-    "--button-outline-border": outline.borderColor,
-    "--button-ghost-bg": ghost.fillColor,
-    "--button-ghost-text": ghost.textColor,
-    "--button-radius": px(primary.borderRadius || secondary.borderRadius || outline.borderRadius),
-    "--button-font-size": px(primary.fontSize),
-    "--button-font-weight": primary.fontWeight,
-    "--button-padding-h": px(primary.paddingH),
-    "--button-padding-v": px(primary.paddingV),
+    "--type-body-spacing": px(body.letterSpacing),
+    "--type-body-case": textCase(body.textCase),
+    "--type-body-color-light": body.colorLight,
+    "--type-body-color-dark": body.colorDark,
+    "--form-wrapper-bg": forms.wrapperBgColor,
+    "--form-wrapper-opacity": percent(forms.wrapperBgOpacity ?? 100),
     "--field-bg": forms.fieldBgColor,
+    "--field-bg-opacity": percent(forms.fieldBgOpacity ?? 100),
     "--field-border": forms.fieldBorderColor,
     "--field-border-focus": forms.fieldBorderColorFocus,
     "--field-text": forms.fieldTextColor,
+    "--field-font": forms.fieldFontFamily,
+    "--field-font-size": px(forms.fieldFontSize),
+    "--field-font-weight": forms.fieldFontWeight,
     "--field-radius": px(forms.fieldBorderRadius),
     "--field-height": px(forms.fieldHeight),
     "--field-padding-h": px(forms.fieldPaddingH),
     "--placeholder-color": forms.placeholderColor,
     "--label-color": forms.labelColor,
+    "--label-font": forms.labelFontFamily,
     "--label-font-size": px(forms.labelFontSize),
     "--label-font-weight": forms.labelFontWeight,
   };
 
+  addTypographyTokens(tokenMap, "h1", h1, body.fontFamily);
+  addTypographyTokens(tokenMap, "h2", h2, h1.fontFamily || body.fontFamily);
+  addTypographyTokens(tokenMap, "h3", h3, h2.fontFamily || h1.fontFamily || body.fontFamily);
+  addTypographyTokens(tokenMap, "h4", h4, h3.fontFamily || body.fontFamily);
+  addTypographyTokens(tokenMap, "h5", h5, h4.fontFamily || body.fontFamily);
+  addTypographyTokens(tokenMap, "h6", h6, h5.fontFamily || body.fontFamily);
+  addTypographyTokens(tokenMap, "small", small, body.fontFamily);
+  addTypographyTokens(tokenMap, "nav", nav, body.fontFamily);
+  addButtonTokens(tokenMap, "primary", primary);
+  addButtonTokens(tokenMap, "secondary", secondary, primary);
+  addButtonTokens(tokenMap, "outline", outline, primary);
+  addButtonTokens(tokenMap, "ghost", ghost, primary);
+
   Object.entries(tokenMap).forEach(([key, value]) => setToken(root, key, value));
+  loadCmsFonts(settings);
 }

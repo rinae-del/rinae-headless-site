@@ -18,6 +18,7 @@ type Props = {
   form: CmsForm | null;
   formId?: string;
   email?: string;
+  submitButtonPreset?: string;
 };
 
 function fieldInputType(type: string) {
@@ -25,9 +26,16 @@ function fieldInputType(type: string) {
   return "text";
 }
 
-export function ContactForm({ form, formId, email }: Props) {
+function normalizeButtonPreset(value?: string) {
+  return ["primary", "secondary", "outline", "ghost"].includes(value || "")
+    ? value
+    : "primary";
+}
+
+export function ContactForm({ form, formId, email, submitButtonPreset }: Props) {
   const fields = form?.fields?.length ? form.fields : fallbackFields;
   const effectiveFormId = form?.id || formId || contactFormId;
+  const buttonPreset = normalizeButtonPreset(submitButtonPreset);
   const [values, setValues] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
 
@@ -113,7 +121,7 @@ export function ContactForm({ form, formId, email }: Props) {
       </div>
 
       <div className="form-actions">
-        <button className="btn btn-primary" type="submit" disabled={status === "sending"}>
+        <button className={`btn btn-${buttonPreset}`} type="submit" disabled={status === "sending"}>
           <span>{status === "sending" ? "Sending" : form?.submit_label || "Send brief"}</span>
           <Send aria-hidden="true" size={18} />
         </button>
