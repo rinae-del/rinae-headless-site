@@ -1,21 +1,6 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import {
-  ArrowRight,
-  ArrowUpRight,
-  CheckCircle2,
-  Code2,
-  Gauge,
-  Layers3,
-  Mail,
-  Menu,
-  Phone,
-  Send,
-  ShieldCheck,
-  Star,
-  X,
-  Zap,
-} from "lucide-react";
-import { ContentBlock } from "./components/ContentBlock";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowUpRight, Menu, Phone, X } from "lucide-react";
+import { ContentBlock, type CmsRenderContext } from "./components/ContentBlock";
 import {
   applyDesignTokens,
   contactFormId,
@@ -25,77 +10,253 @@ import {
   fallbackReviews,
   fallbackSettings,
   getFaqs,
+  getFeedEntries,
   getFormStructure,
   getHomePage,
   getNavigation,
   getReviews,
   getSettings,
-  submitForm,
-  type CmsFormField,
+  type CmsBlock,
   type CmsForm,
   type CmsPage,
   type Faq,
+  type FeedEntry,
   type NavItem,
   type Review,
   type SiteSettings,
 } from "./lib/squareflo";
 
-const services = [
-  {
-    icon: Zap,
-    title: "Urgent launch sprints",
-    text: "Focused React builds for campaigns, rebrands, and investor-facing moments that cannot drift.",
-  },
-  {
-    icon: Layers3,
-    title: "Headless CMS systems",
-    text: "Squareflo pages, navigation, settings, forms, FAQs, reviews, and feed content rendered with care.",
-  },
-  {
-    icon: Gauge,
-    title: "Performance polish",
-    text: "Fast interfaces with stable layouts, responsive details, and conversion paths that stay obvious.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Professional trust layer",
-    text: "Serious visual systems, accessible components, SEO metadata, and launch-ready structure.",
-  },
-];
+function normalizeKey(value: string) {
+  return value.replace(/[\s_-]/g, "").toLowerCase();
+}
 
-const processSteps = [
-  {
-    label: "01",
-    title: "Stabilize the brief",
-    text: "Clarify the audience, pages, conversion goals, CMS modules, and the non-negotiables for launch.",
-  },
-  {
-    label: "02",
-    title: "Build the frontend",
-    text: "Translate content into a sharp React experience with clean data boundaries and reusable components.",
-  },
-  {
-    label: "03",
-    title: "Ship and harden",
-    text: "Test responsive states, connect forms, refine SEO, and prepare the site for confident handoff.",
-  },
-];
+function slugify(value?: string) {
+  return (value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
-const fallbackFields: CmsFormField[] = [
-  { key: "name", label: "Name", type: "text", required: true },
-  { key: "email", label: "Email", type: "email", required: true },
-  { key: "project", label: "Project urgency", type: "text", required: true },
-  { key: "message", label: "Brief", type: "textarea", required: true },
-];
+function stringFrom(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (!value || typeof value !== "object") return "";
 
-function hasHeadlessContent(page: CmsPage) {
-  const left = page.headless_content?.left?.blocks || [];
-  const right = page.headless_content?.right?.blocks || [];
-  return left.length > 0 || right.length > 0;
+  const record = value as Record<string, unknown>;
+  return stringFrom(record.value || record.text || record.label || record.title || record.url || record.src);
+}
+
+function fieldString(block: CmsBlock, keys: string[]) {
+  const normalizedKeys = keys.map(normalizeKey);
+  const field = block.fields?.find((candidate) =>
+    normalizedKeys.includes(normalizeKey(candidate.key)),
+  );
+  return field ? stringFrom(field.value) : "";
+}
+
+function walkBlocks(blocks: CmsBlock[], visit: (block: CmsBlock) => void) {
+  blocks.forEach((block) => {
+    visit(block);
+    if (Array.isArray(block.columns)) {
+      block.columns.forEach((column) => walkBlocks(column.blocks || [], visit));
+    }
+    if (block.left?.blocks) walkBlocks(block.left.blocks, visit);
+    if (block.right?.blocks) walkBlocks(block.right.blocks, visit);
+  });
+}
+
+function pageBlocks(page: CmsPage) {
+  return {
+    left: page.headless_content?.left?.blocks || [],
+    right: page.headless_content?.right?.blocks || [],
+  };
+}
+
+function isHeroBlock(block: CmsBlock) {
+  if (block.type !== "section") return false;
+  const slug = normalizeKey(slugify(block.section_slug || block.section_name || ""));
+  return slug.includes("hero");
+}
+
+function splitHero(page: CmsPage): {
+  hero: CmsBlock;
+  left: CmsBlock[];
+  right: CmsBlock[];
+} {
+  const { left, right } = pageBlocks(page);
+  const hero = [...left, ...right].find(isHeroBlock);
+
+  if (hero) {
+    return {
+      hero,
+      left: left.filter((block) => block !== hero),
+      right: right.filter((block) => block !== hero),
+    };
+  }
+
+  return {
+    hero: {
+      type: "section",
+      id: "derived-hero",
+      section_slug: "hero-banner",
+      section_name: "Hero",
+      fields: [
+        { key: "heading", value: page.title },
+        { key: "description", value: page.meta?.description || "" },
+        { key: "background_image", value: page.meta?.og_image || "" },
+      ],
+    },
+    left,
+    right,
+  };
+}
+
+function extractFormId(page: CmsPage) {
+  let found = "";
+  const { left, right } = pageBlocks(page);
+
+  walkBlocks([...left, ...right], (block) => {
+    if (found || block.type !== "section") return;
+    found = fieldString(block, ["form_id", "formId", "contact_form_id"]);
+  });
+
+  return found;
+}
+
+function extractFeedModules(page: CmsPage) {
+  const modules = new Set<string>();
+  const { left, right } = pageBlocks(page);
+
+  walkBlocks([...left, ...right], (block) => {
+    if (block.type !== "section") return;
+    const moduleSlug = fieldString(block, [
+      "module",
+      "module_slug",
+      "feed",
+      "feed_slug",
+      "source_module",
+      "entries_module",
+    ]);
+    if (moduleSlug) modules.add(moduleSlug);
+  });
+
+  return [...modules];
 }
 
 function isExternalUrl(url?: string) {
   return Boolean(url && /^(https?:|mailto:|tel:)/.test(url));
+}
+
+function sortedNav(items: NavItem[]) {
+  return items.slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+}
+
+function upsertMeta(selector: string, create: () => HTMLMetaElement, content?: string) {
+  if (!content) return;
+  const existing = document.head.querySelector<HTMLMetaElement>(selector);
+  const element = existing || create();
+  element.setAttribute("content", content);
+  if (!existing) document.head.appendChild(element);
+}
+
+function syncDocumentHead(page: CmsPage, settings: SiteSettings) {
+  const title =
+    page.meta?.title ||
+    (settings.seo?.title_template && page.title
+      ? settings.seo.title_template.replace("%s", page.title)
+      : settings.seo?.default_title) ||
+    settings.site.name;
+  const description =
+    page.meta?.description || settings.seo?.default_description || settings.site.description || "";
+
+  document.title = title;
+
+  upsertMeta(
+    'meta[name="description"]',
+    () => {
+      const element = document.createElement("meta");
+      element.setAttribute("name", "description");
+      return element;
+    },
+    description,
+  );
+
+  upsertMeta(
+    'meta[property="og:title"]',
+    () => {
+      const element = document.createElement("meta");
+      element.setAttribute("property", "og:title");
+      return element;
+    },
+    page.meta?.og_title || title,
+  );
+
+  upsertMeta(
+    'meta[property="og:description"]',
+    () => {
+      const element = document.createElement("meta");
+      element.setAttribute("property", "og:description");
+      return element;
+    },
+    page.meta?.og_description || description,
+  );
+
+  upsertMeta(
+    'meta[property="og:image"]',
+    () => {
+      const element = document.createElement("meta");
+      element.setAttribute("property", "og:image");
+      return element;
+    },
+    page.meta?.og_image || settings.seo?.default_og_image,
+  );
+
+  const robots = [page.meta?.no_index ? "noindex" : "", page.meta?.no_follow ? "nofollow" : ""]
+    .filter(Boolean)
+    .join(",");
+  upsertMeta(
+    'meta[name="robots"]',
+    () => {
+      const element = document.createElement("meta");
+      element.setAttribute("name", "robots");
+      return element;
+    },
+    robots,
+  );
+
+  if (page.meta?.canonical_url) {
+    let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement("link");
+      canonical.setAttribute("rel", "canonical");
+      document.head.appendChild(canonical);
+    }
+    canonical.setAttribute("href", page.meta.canonical_url);
+  }
+
+  if (settings.business.logos?.favicon) {
+    let icon = document.head.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!icon) {
+      icon = document.createElement("link");
+      icon.setAttribute("rel", "icon");
+      document.head.appendChild(icon);
+    }
+    icon.setAttribute("href", settings.business.logos.favicon);
+  }
+
+  if (page.meta?.structured_data) {
+    let script = document.head.querySelector<HTMLScriptElement>("#cms-structured-data");
+    if (!script) {
+      script = document.createElement("script");
+      script.id = "cms-structured-data";
+      script.type = "application/ld+json";
+      document.head.appendChild(script);
+    }
+    script.textContent =
+      typeof page.meta.structured_data === "string"
+        ? page.meta.structured_data
+        : JSON.stringify(page.meta.structured_data);
+  }
 }
 
 function NavLink({ item, onClick }: { item: NavItem; onClick?: () => void }) {
@@ -110,7 +271,7 @@ function NavLink({ item, onClick }: { item: NavItem; onClick?: () => void }) {
     <a
       className="nav-link"
       href={url}
-      target={item.open_in_new_tab || isExternalUrl(url) ? "_blank" : undefined}
+      target={item.open_in_new_tab ? "_blank" : undefined}
       rel={item.open_in_new_tab || isExternalUrl(url) ? "noreferrer" : undefined}
       onClick={onClick}
     >
@@ -119,96 +280,42 @@ function NavLink({ item, onClick }: { item: NavItem; onClick?: () => void }) {
   );
 }
 
-function StarRating({ rating }: { rating: number }) {
-  return (
-    <div className="stars" aria-label={`${rating} out of 5 stars`}>
-      {Array.from({ length: 5 }).map((_, index) => (
-        <Star
-          key={index}
-          size={16}
-          aria-hidden="true"
-          fill={index < Math.round(rating) ? "currentColor" : "none"}
-        />
-      ))}
-    </div>
-  );
-}
+function PageContent({
+  left,
+  right,
+  context,
+}: {
+  left: CmsBlock[];
+  right: CmsBlock[];
+  context: CmsRenderContext;
+}) {
+  if (!left.length && !right.length) return null;
 
-function ContactForm({ form, email }: { form: CmsForm | null; email?: string }) {
-  const fields = form?.fields?.length ? form.fields : fallbackFields;
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setStatus("sending");
-
-    try {
-      if (form?.id && contactFormId) {
-        await submitForm(form.id, values);
-      }
-      setStatus("sent");
-      setValues({});
-    } catch {
-      setStatus("error");
-    }
+  if (right.length) {
+    return (
+      <section className="section cms-section">
+        <div className="cms-layout">
+          <div>
+            {left.map((block, index) => (
+              <ContentBlock block={block} context={context} key={`${block.type}-${block.id || index}`} />
+            ))}
+          </div>
+          <div>
+            {right.map((block, index) => (
+              <ContentBlock block={block} context={context} key={`${block.type}-${block.id || index}`} />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <form className="contact-form" onSubmit={handleSubmit}>
-      <div className="form-grid">
-        {fields.map((field) => (
-          <label className={field.type === "textarea" ? "field field-wide" : "field"} key={field.key}>
-            <span>{field.label}</span>
-            {field.type === "textarea" ? (
-              <textarea
-                required={field.required}
-                value={values[field.key] || ""}
-                placeholder={field.placeholder || ""}
-                onChange={(event) =>
-                  setValues((current) => ({ ...current, [field.key]: event.target.value }))
-                }
-              />
-            ) : (
-              <input
-                type={field.type || "text"}
-                required={field.required}
-                value={values[field.key] || ""}
-                placeholder={field.placeholder || ""}
-                onChange={(event) =>
-                  setValues((current) => ({ ...current, [field.key]: event.target.value }))
-                }
-              />
-            )}
-          </label>
-        ))}
-      </div>
-
-      <div className="form-actions">
-        <button className="btn btn-primary" type="submit" disabled={status === "sending"}>
-          <span>
-            {status === "sending"
-              ? "Sending"
-              : form?.submit_label || "Send brief"}
-          </span>
-          <Send aria-hidden="true" size={18} />
-        </button>
-        {email ? (
-          <a className="text-link" href={`mailto:${email}`}>
-            {email}
-          </a>
-        ) : null}
-      </div>
-
-      {status === "sent" ? (
-        <p className="form-note success">
-          {form?.success_message || "Brief received. We will follow up shortly."}
-        </p>
-      ) : null}
-      {status === "error" ? (
-        <p className="form-note error">The message could not send. Please use the email link.</p>
-      ) : null}
-    </form>
+    <div className="page-blocks">
+      {left.map((block, index) => (
+        <ContentBlock block={block} context={context} key={`${block.type}-${block.id || index}`} />
+      ))}
+    </div>
   );
 }
 
@@ -216,36 +323,50 @@ export default function App() {
   const [settings, setSettings] = useState<SiteSettings>(fallbackSettings);
   const [page, setPage] = useState<CmsPage>(fallbackHomePage);
   const [navigation, setNavigation] = useState<NavItem[]>(fallbackNavigation);
+  const [footerNavigation, setFooterNavigation] = useState<NavItem[]>([]);
   const [faqs, setFaqs] = useState<Faq[]>(fallbackFaqs);
   const [reviews, setReviews] = useState<Review[]>(fallbackReviews);
   const [form, setForm] = useState<CmsForm | null>(null);
+  const [activeFormId, setActiveFormId] = useState(contactFormId);
+  const [feedEntries, setFeedEntries] = useState<Record<string, FeedEntry[]>>({});
   const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
 
     async function loadCmsContent() {
-      const [nextSettings, nextNavigation, nextPage, nextFaqs, nextReviews, nextForm] =
+      const [nextSettings, nextHeaderNav, nextFooterNav, nextPage, nextFaqs, nextReviews] =
         await Promise.all([
           getSettings(),
           getNavigation("header"),
+          getNavigation("footer"),
           getHomePage(),
           getFaqs(),
           getReviews(),
-          getFormStructure(contactFormId),
         ]);
+
+      const inferredFormId = contactFormId || extractFormId(nextPage);
+      const feedModules = extractFeedModules(nextPage);
+      const [nextForm, feedPairs] = await Promise.all([
+        getFormStructure(inferredFormId),
+        Promise.all(
+          feedModules.map(async (module) => [module, await getFeedEntries(module)] as const),
+        ),
+      ]);
 
       if (!active) return;
 
       applyDesignTokens(nextSettings);
+      syncDocumentHead(nextPage, nextSettings);
       setSettings(nextSettings);
-      setNavigation(nextNavigation);
+      setNavigation(nextHeaderNav);
+      setFooterNavigation(nextFooterNav);
       setPage(nextPage);
       setFaqs(nextFaqs);
       setReviews(nextReviews);
       setForm(nextForm);
-
-      document.title = nextPage.meta?.title || nextSettings.seo?.default_title || nextSettings.site.name;
+      setActiveFormId(inferredFormId);
+      setFeedEntries(Object.fromEntries(feedPairs));
     }
 
     loadCmsContent();
@@ -257,26 +378,39 @@ export default function App() {
 
   const business = settings.business;
   const companyName = business.name || settings.site.name || "Rinae Web Studio";
-  const primaryLocation = business.locations?.[0];
-  const rating = primaryLocation?.google_places?.rating;
-  const totalReviews = primaryLocation?.google_places?.total_reviews;
-  const cmsContentAvailable = hasHeadlessContent(page);
-
-  const navItems = useMemo(
-    () => navigation.slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)),
-    [navigation],
+  const navItems = useMemo(() => sortedNav(navigation), [navigation]);
+  const footerItems = useMemo(
+    () => sortedNav(footerNavigation.length ? footerNavigation : navigation),
+    [footerNavigation, navigation],
+  );
+  const { hero, left, right } = useMemo(() => splitHero(page), [page]);
+  const context = useMemo<CmsRenderContext>(
+    () => ({
+      page,
+      settings,
+      faqs,
+      reviews,
+      form,
+      formId: activeFormId,
+      feedEntries,
+    }),
+    [activeFormId, faqs, feedEntries, form, page, reviews, settings],
   );
 
   return (
     <div className="site-shell">
+      {page.custom_css ? <style>{page.custom_css}</style> : null}
+
       <header className="site-header">
         <div className="header-inner">
           <a className="brand" href="/" aria-label={`${companyName} home`}>
-            {/* {business.logos?.rectangular ? (
+            {business.logos?.rectangular ? (
               <img src={business.logos.rectangular} alt={companyName} className="brand-logo" />
+            ) : business.logos?.square ? (
+              <img src={business.logos.square} alt={companyName} className="brand-logo square" />
             ) : (
-              <span className="brand-mark">R</span>
-            )} */}
+              <span className="brand-mark">{companyName.slice(0, 1)}</span>
+            )}
             <span className="brand-name">{companyName}</span>
           </a>
 
@@ -286,7 +420,7 @@ export default function App() {
                 <NavLink item={item} />
                 {item.children?.length ? (
                   <div className="dropdown-menu">
-                    {item.children.map((child) => (
+                    {sortedNav(item.children).map((child) => (
                       <NavLink item={child} key={child.id} />
                     ))}
                   </div>
@@ -319,249 +453,23 @@ export default function App() {
 
         <div className={navOpen ? "mobile-nav open" : "mobile-nav"}>
           {navItems.map((item) => (
-            <NavLink item={item} key={item.id} onClick={() => setNavOpen(false)} />
+            <div className="mobile-nav-item" key={item.id}>
+              <NavLink item={item} onClick={() => setNavOpen(false)} />
+              {item.children?.length ? (
+                <div className="mobile-child-links">
+                  {sortedNav(item.children).map((child) => (
+                    <NavLink item={child} key={child.id} onClick={() => setNavOpen(false)} />
+                  ))}
+                </div>
+              ) : null}
+            </div>
           ))}
         </div>
       </header>
 
       <main>
-        <section className="hero" aria-labelledby="hero-title">
-          <div className="hero-inner">
-            <div className="hero-copy">
-              <p className="eyebrow">Headless React delivery</p>
-              <h1 id="hero-title">Web development agency for urgent launches</h1>
-              <p className="hero-lede">
-                Sleek, CMS-powered websites for teams that need the work to feel premium, move
-                quickly, and stand up to serious scrutiny.
-              </p>
-              <div className="hero-actions">
-                <a className="btn btn-primary" href="#contact">
-                  <span>Start a build</span>
-                  <ArrowRight aria-hidden="true" size={18} />
-                </a>
-                <a className="btn btn-secondary" href="#process">
-                  <span>View process</span>
-                  <ArrowUpRight aria-hidden="true" size={18} />
-                </a>
-              </div>
-              <div className="hero-metrics" aria-label="Delivery highlights">
-                <div>
-                  <strong>1-3 wk</strong>
-                  <span>focused launch windows</span>
-                </div>
-                <div>
-                  <strong>CMS</strong>
-                  <span>Squareflo managed content</span>
-                </div>
-                <div>
-                  <strong>SEO</strong>
-                  <span>metadata and structure ready</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="proof-band" id="proof" aria-label="Trust signals">
-          <div className="proof-grid">
-            <div>
-              <span>Frontend</span>
-              <strong>React interface</strong>
-            </div>
-            <div>
-              <span>Content</span>
-              <strong>Squareflo API</strong>
-            </div>
-            <div>
-              <span>Design</span>
-              <strong>Poppins system</strong>
-            </div>
-            <div>
-              <span>Launch</span>
-              <strong>Vercel ready</strong>
-            </div>
-          </div>
-        </section>
-
-        <section className="section services-section" id="services">
-          <div className="section-heading">
-            <p className="eyebrow dark">Services</p>
-            <h2>Built for the moment when your website needs to look established now.</h2>
-            <p>
-              The frontend is structured for dynamic CMS content while keeping the visual system
-              focused, premium, and easy to scan.
-            </p>
-          </div>
-
-          <div className="services-grid">
-            {services.map((service) => {
-              const Icon = service.icon;
-              return (
-                <article className="service-card" key={service.title}>
-                  <span className="icon-tile" aria-hidden="true">
-                    <Icon size={24} />
-                  </span>
-                  <h3>{service.title}</h3>
-                  <p>{service.text}</p>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="workbench-section">
-          <div className="workbench-copy">
-            <p className="eyebrow dark">Headless architecture</p>
-            <h2>CMS data becomes a composed, branded frontend instead of a generic template.</h2>
-            <p>
-              Pages, settings, navigation, reviews, FAQs, and form structures are fetched from
-              Squareflo, then styled through a responsive React presentation layer.
-            </p>
-            <ul className="check-list">
-              <li>
-                <CheckCircle2 aria-hidden="true" size={19} />
-                Runtime design tokens mapped to CSS variables
-              </li>
-              <li>
-                <CheckCircle2 aria-hidden="true" size={19} />
-                CMS block renderer for two-column page content
-              </li>
-              <li>
-                <CheckCircle2 aria-hidden="true" size={19} />
-                Contact form path ready for Squareflo submissions
-              </li>
-            </ul>
-          </div>
-
-          <div className="terminal-visual" aria-label="Frontend system preview">
-            <div className="terminal-bar">
-              <span />
-              <span />
-              <span />
-              <strong>headless-site.tsx</strong>
-            </div>
-            <div className="terminal-body">
-              <p>
-                <span>const</span> page = await cms("/pages/home")
-              </p>
-              <p>
-                <span>render</span> &lt;Hero content=&#123;page&#125; /&gt;
-              </p>
-              <p>
-                <span>apply</span> design.tokens.toCSS()
-              </p>
-              <div className="terminal-preview">
-                <Code2 aria-hidden="true" size={26} />
-                <div>
-                  <strong>Structured content</strong>
-                  <small>Fast frontend. Serious brand feel.</small>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {cmsContentAvailable ? (
-          <section className="section cms-section">
-            <div className="section-heading compact">
-              <p className="eyebrow dark">CMS page</p>
-              <h2>{page.title}</h2>
-            </div>
-            <div className="cms-layout">
-              <div>
-                {page.headless_content?.left?.blocks?.map((block, index) => (
-                  <ContentBlock block={block} key={`${block.type}-${index}`} />
-                ))}
-              </div>
-              <div>
-                {page.headless_content?.right?.blocks?.map((block, index) => (
-                  <ContentBlock block={block} key={`${block.type}-${index}`} />
-                ))}
-              </div>
-            </div>
-          </section>
-        ) : null}
-
-        <section className="section process-section" id="process">
-          <div className="section-heading">
-            <p className="eyebrow dark">Process</p>
-            <h2>Disciplined enough for corporate stakeholders, quick enough for urgency.</h2>
-          </div>
-          <div className="process-grid">
-            {processSteps.map((step) => (
-              <article className="process-card" key={step.label}>
-                <span>{step.label}</span>
-                <h3>{step.title}</h3>
-                <p>{step.text}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="section reviews-section">
-          <div className="section-heading compact">
-            <p className="eyebrow dark">Proof</p>
-            <h2>Clients should feel the site is already operating at the next level.</h2>
-            {rating ? (
-              <p>
-                {rating.toFixed(1)} average rating
-                {totalReviews ? ` from ${totalReviews} reviews` : ""}
-              </p>
-            ) : null}
-          </div>
-          <div className="review-grid">
-            {reviews.map((review) => (
-              <article className="review-card" key={review.id}>
-                <StarRating rating={review.rating} />
-                <p>{review.text}</p>
-                <footer>
-                  <strong>{review.author_name}</strong>
-                  {review.relative_time ? <span>{review.relative_time}</span> : null}
-                </footer>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="section faq-section">
-          <div className="section-heading compact">
-            <p className="eyebrow dark">Questions</p>
-            <h2>Clear answers before the first call.</h2>
-          </div>
-          <div className="faq-list">
-            {faqs.map((faq, index) => (
-              <details key={faq.id} open={index === 0}>
-                <summary>{faq.question}</summary>
-                <p dangerouslySetInnerHTML={{ __html: faq.answer }} />
-              </details>
-            ))}
-          </div>
-        </section>
-
-        <section className="contact-section" id="contact">
-          <div className="contact-inner">
-            <div className="contact-copy">
-              <p className="eyebrow">Start the build</p>
-              <h2>Bring the deadline. We will bring the structure, polish, and launch focus.</h2>
-              <p>{business.short_description || settings.site.description}</p>
-              <div className="contact-links">
-                {business.email ? (
-                  <a href={`mailto:${business.email}`}>
-                    <Mail aria-hidden="true" size={18} />
-                    {business.email}
-                  </a>
-                ) : null}
-                {business.phone ? (
-                  <a href={`tel:${business.phone}`}>
-                    <Phone aria-hidden="true" size={18} />
-                    {business.phone}
-                  </a>
-                ) : null}
-              </div>
-            </div>
-            <ContactForm form={form} email={business.email} />
-          </div>
-        </section>
+        <ContentBlock block={hero} context={context} />
+        <PageContent left={left} right={right} context={context} />
       </main>
 
       <footer className="site-footer">
@@ -569,7 +477,21 @@ export default function App() {
           <strong>{companyName}</strong>
           <span>{settings.site.description || business.short_description}</span>
         </div>
-        <a href="#hero-title">Back to top</a>
+        {footerItems.length ? (
+          <nav className="footer-nav" aria-label="Footer navigation">
+            {footerItems.slice(0, 6).map((item) => (
+              <a
+                key={item.id}
+                href={item.url || "#"}
+                target={item.open_in_new_tab ? "_blank" : undefined}
+                rel={item.open_in_new_tab ? "noreferrer" : undefined}
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
+        ) : null}
+        <a href="#home">Back to top</a>
       </footer>
     </div>
   );

@@ -1,13 +1,39 @@
+export type CmsField = {
+  key: string;
+  label?: string;
+  type?: string;
+  value?: unknown;
+  locked?: boolean;
+  source_field?: string;
+  [key: string]: unknown;
+};
+
 export type CmsBlock = {
   type: string;
+  id?: string;
   content?: string;
+  text?: string;
   level?: number;
   src?: string;
   alt?: string;
   url?: string;
   label?: string;
   variant?: string;
+  style?: string;
+  linkType?: string;
+  linkValue?: string;
+  align?: string;
   size?: number;
+  height?: number;
+  layout?: string;
+  aspectRatio?: string;
+  clickAction?: string;
+  count?: number;
+  fields?: CmsField[];
+  section_template_id?: string;
+  section_slug?: string;
+  section_name?: string;
+  section_description?: string;
   columns?: Array<{ blocks?: CmsBlock[] }>;
   left?: { blocks?: CmsBlock[] };
   right?: { blocks?: CmsBlock[] };
@@ -20,18 +46,26 @@ export type CmsPage = {
   title: string;
   page_type?: string;
   is_home?: boolean;
+  published?: boolean;
   headless_content?: {
     left?: { blocks?: CmsBlock[] };
     right?: { blocks?: CmsBlock[] };
   };
+  hide_from_nav?: boolean;
   meta?: {
     title?: string;
     description?: string;
+    og_title?: string;
+    og_description?: string;
     og_image?: string;
     canonical_url?: string | null;
     no_index?: boolean;
     no_follow?: boolean;
+    structured_data?: unknown;
   };
+  custom_css?: string | null;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type NavItem = {
@@ -40,7 +74,7 @@ export type NavItem = {
   type: "label" | "page" | "external" | string;
   url?: string;
   open_in_new_tab?: boolean;
-  location?: "header" | "footer" | string;
+  location?: "header" | "footer" | "all" | string;
   sort_order?: number;
   children?: NavItem[];
 };
@@ -57,6 +91,7 @@ export type SiteSettings = {
     phone?: string;
     email?: string;
     timezone?: string;
+    location_count?: number;
     logos?: {
       rectangular?: string;
       square?: string;
@@ -72,12 +107,20 @@ export type SiteSettings = {
       postal_code?: string;
       phone?: string;
       email?: string;
+      place_id?: string | null;
       google_places?: {
         rating?: number;
         total_reviews?: number;
+        business_status?: string;
         google_maps_url?: string;
+        website?: string;
+        phone?: string;
+        phone_international?: string;
         open_now?: boolean;
         hours?: string[];
+        types?: string[];
+        lat?: number;
+        lng?: number;
       } | null;
     }>;
   };
@@ -86,6 +129,7 @@ export type SiteSettings = {
     typography?: Record<string, Record<string, string | number>>;
     buttons?: Record<string, Record<string, string | number>>;
     forms?: Record<string, string | number>;
+    fonts?: Record<string, unknown>;
   };
   seo?: {
     default_title?: string;
@@ -101,6 +145,7 @@ export type Faq = {
   answer: string;
   category?: string;
   tags?: string[];
+  sort_order?: number;
 };
 
 export type Review = {
@@ -110,7 +155,12 @@ export type Review = {
   rating: number;
   text: string;
   relative_time?: string;
+  review_time?: string;
+  language?: string;
+  source?: string;
   featured?: boolean;
+  tags?: string[];
+  location_id?: string;
 };
 
 export type CmsFormField = {
@@ -119,6 +169,7 @@ export type CmsFormField = {
   type: string;
   required?: boolean;
   placeholder?: string;
+  options?: Array<string | { label: string; value: string }>;
 };
 
 export type CmsForm = {
@@ -129,7 +180,47 @@ export type CmsForm = {
   success_message?: string;
 };
 
-const DEFAULT_API_URL = "https://test-site-rinae.flodev.ca/api/v1";
+export type CmsModule = {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  fields?: Array<{
+    key: string;
+    label: string;
+    type: string;
+    required?: boolean;
+  }>;
+  taxonomies?: unknown[];
+  statuses?: unknown[];
+};
+
+export type FeedEntry = {
+  id: string;
+  title: string;
+  slug: string;
+  status?: string;
+  published?: boolean;
+  data?: Record<string, unknown>;
+  categories?: string[];
+  tags?: string[];
+  author?: {
+    first_name?: string;
+    last_name?: string;
+  };
+  view_count?: number;
+  sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
+  meta?: {
+    title?: string;
+    description?: string;
+    og_image?: string;
+    canonical_url?: string | null;
+  };
+};
+
+const DEFAULT_API_URL = "https://hizl.net/api/v1";
 
 export const squarefloApiUrl = (
   import.meta.env.VITE_SQUAREFLO_API_URL || DEFAULT_API_URL
@@ -193,6 +284,216 @@ export async function cms<T>(
   return response.json() as Promise<T>;
 }
 
+const fallbackSectionBlocks: CmsBlock[] = [
+  {
+    type: "section",
+    id: "fallback-hero",
+    section_slug: "hero-banner",
+    section_name: "Hero Banner",
+    fields: [
+      { key: "eyebrow", type: "text", value: "Headless React delivery" },
+      { key: "heading", type: "text", value: "Web development agency for urgent launches" },
+      {
+        key: "description",
+        type: "text",
+        value:
+          "Sleek, CMS-powered websites for teams that need the work to feel premium, move quickly, and stand up to serious scrutiny.",
+      },
+      {
+        key: "background_image",
+        type: "image",
+        value:
+          "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1800&q=82",
+      },
+      { key: "primary_label", type: "text", value: "Start a build" },
+      { key: "primary_link", type: "text", value: "#contact" },
+      { key: "secondary_label", type: "text", value: "View process" },
+      { key: "secondary_link", type: "text", value: "#process" },
+      {
+        key: "metrics",
+        type: "json",
+        value: [
+          { label: "1-3 wk", text: "focused launch windows" },
+          { label: "CMS", text: "Squareflo managed content" },
+          { label: "SEO", text: "metadata and structure ready" },
+        ],
+      },
+    ],
+  },
+  {
+    type: "section",
+    id: "fallback-proof",
+    section_slug: "trust-band",
+    section_name: "Trust Band",
+    fields: [
+      {
+        key: "items",
+        type: "json",
+        value: [
+          { label: "Frontend", title: "React interface" },
+          { label: "Content", title: "Squareflo API" },
+          { label: "Design", title: "CMS design tokens" },
+          { label: "Launch", title: "Vercel ready" },
+        ],
+      },
+    ],
+  },
+  {
+    type: "section",
+    id: "fallback-services",
+    section_slug: "services",
+    section_name: "Services",
+    fields: [
+      { key: "eyebrow", type: "text", value: "Services" },
+      {
+        key: "heading",
+        type: "text",
+        value: "Built for the moment when your website needs to look established now.",
+      },
+      {
+        key: "description",
+        type: "text",
+        value:
+          "The frontend is structured for dynamic CMS content while keeping the visual system focused, premium, and easy to scan.",
+      },
+      {
+        key: "items",
+        type: "json",
+        value: [
+          {
+            icon: "zap",
+            title: "Urgent launch sprints",
+            text: "Focused React builds for campaigns, rebrands, and investor-facing moments that cannot drift.",
+          },
+          {
+            icon: "layers",
+            title: "Headless CMS systems",
+            text: "Squareflo pages, navigation, settings, forms, FAQs, reviews, and feed content rendered with care.",
+          },
+          {
+            icon: "gauge",
+            title: "Performance polish",
+            text: "Fast interfaces with stable layouts, responsive details, and conversion paths that stay obvious.",
+          },
+          {
+            icon: "shield",
+            title: "Professional trust layer",
+            text: "Serious visual systems, accessible components, SEO metadata, and launch-ready structure.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    type: "section",
+    id: "fallback-architecture",
+    section_slug: "feature-architecture",
+    section_name: "Headless architecture",
+    fields: [
+      { key: "eyebrow", type: "text", value: "Headless architecture" },
+      {
+        key: "heading",
+        type: "text",
+        value: "CMS data becomes a composed, branded frontend instead of a generic template.",
+      },
+      {
+        key: "description",
+        type: "text",
+        value:
+          "Pages, settings, navigation, reviews, FAQs, and form structures are fetched from Squareflo, then styled through a responsive React presentation layer.",
+      },
+      {
+        key: "items",
+        type: "json",
+        value: [
+          { text: "Runtime design tokens mapped to CSS variables" },
+          { text: "CMS block renderer for two-column page content" },
+          { text: "Contact form path ready for Squareflo submissions" },
+        ],
+      },
+    ],
+  },
+  {
+    type: "section",
+    id: "fallback-process",
+    section_slug: "process",
+    section_name: "Process",
+    fields: [
+      { key: "eyebrow", type: "text", value: "Process" },
+      {
+        key: "heading",
+        type: "text",
+        value: "Disciplined enough for corporate stakeholders, quick enough for urgency.",
+      },
+      {
+        key: "items",
+        type: "json",
+        value: [
+          {
+            label: "01",
+            title: "Stabilize the brief",
+            text: "Clarify the audience, pages, conversion goals, CMS modules, and the non-negotiables for launch.",
+          },
+          {
+            label: "02",
+            title: "Build the frontend",
+            text: "Translate content into a sharp React experience with clean data boundaries and reusable components.",
+          },
+          {
+            label: "03",
+            title: "Ship and harden",
+            text: "Test responsive states, connect forms, refine SEO, and prepare the site for confident handoff.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    type: "section",
+    id: "fallback-reviews",
+    section_slug: "reviews",
+    section_name: "Reviews",
+    fields: [
+      { key: "eyebrow", type: "text", value: "Proof" },
+      {
+        key: "heading",
+        type: "text",
+        value: "Clients should feel the site is already operating at the next level.",
+      },
+    ],
+  },
+  {
+    type: "section",
+    id: "fallback-faqs",
+    section_slug: "faqs",
+    section_name: "FAQs",
+    fields: [
+      { key: "eyebrow", type: "text", value: "Questions" },
+      { key: "heading", type: "text", value: "Clear answers before the first call." },
+    ],
+  },
+  {
+    type: "section",
+    id: "fallback-contact",
+    section_slug: "contact",
+    section_name: "Contact",
+    fields: [
+      { key: "eyebrow", type: "text", value: "Start the build" },
+      {
+        key: "heading",
+        type: "text",
+        value: "Bring the deadline. We will bring the structure, polish, and launch focus.",
+      },
+      {
+        key: "background_image",
+        type: "image",
+        value:
+          "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1800&q=82",
+      },
+    ],
+  },
+];
+
 export const fallbackSettings: SiteSettings = {
   site: {
     name: "Rinae Web Studio",
@@ -229,11 +530,57 @@ export const fallbackSettings: SiteSettings = {
       bgTextDark: "#101318",
       pageBg: "#f7f8fb",
     },
+    typography: {
+      h1: {
+        fontFamily: "Poppins",
+        weight: 800,
+        size: 66,
+        lineHeight: 1.02,
+        letterSpacing: 0,
+      },
+      h2: {
+        fontFamily: "Poppins",
+        weight: 700,
+        size: 41,
+        lineHeight: 1.14,
+        letterSpacing: 0,
+      },
+      body: {
+        fontFamily: "Poppins",
+        weight: 400,
+        size: 16,
+        lineHeight: 1.6,
+        letterSpacing: 0,
+      },
+    },
     buttons: {
       primary: {
         fillColor: "#2563eb",
         fillColorHover: "#1747b7",
         textColor: "#ffffff",
+        textColorHover: "#ffffff",
+        borderRadius: 8,
+        fontSize: 14,
+        fontWeight: "700",
+        paddingH: 20,
+        paddingV: 10,
+      },
+      secondary: {
+        fillColor: "rgba(255, 255, 255, 0.08)",
+        fillColorHover: "rgba(255, 255, 255, 0.16)",
+        textColor: "#ffffff",
+        borderColor: "rgba(255, 255, 255, 0.34)",
+        borderRadius: 8,
+      },
+      outline: {
+        fillColor: "transparent",
+        textColor: "#11151c",
+        borderColor: "#d6dbe4",
+        borderRadius: 8,
+      },
+      ghost: {
+        fillColor: "transparent",
+        textColor: "#2563eb",
         borderRadius: 8,
       },
     },
@@ -244,6 +591,11 @@ export const fallbackSettings: SiteSettings = {
       fieldTextColor: "#11151c",
       fieldBorderRadius: 8,
       fieldHeight: 48,
+      fieldPaddingH: 14,
+      placeholderColor: "#98a2b3",
+      labelColor: "#2b3442",
+      labelFontWeight: "700",
+      submitButtonPreset: "primary",
     },
   },
   seo: {
@@ -259,7 +611,7 @@ export const fallbackHomePage: CmsPage = {
   title: "Web development agency for urgent launches",
   is_home: true,
   headless_content: {
-    left: { blocks: [] },
+    left: { blocks: fallbackSectionBlocks },
     right: { blocks: [] },
   },
   meta: {
@@ -269,11 +621,11 @@ export const fallbackHomePage: CmsPage = {
 };
 
 export const fallbackNavigation: NavItem[] = [
-  { id: "home", label: "Home", type: "page", url: "/", children: [] },
-  { id: "services", label: "Services", type: "page", url: "#services", children: [] },
-  { id: "process", label: "Process", type: "page", url: "#process", children: [] },
-  { id: "proof", label: "Proof", type: "page", url: "#proof", children: [] },
-  { id: "contact", label: "Contact", type: "page", url: "#contact", children: [] },
+  { id: "home", label: "Home", type: "page", url: "/", sort_order: 0, children: [] },
+  { id: "services", label: "Services", type: "page", url: "#services", sort_order: 1, children: [] },
+  { id: "process", label: "Process", type: "page", url: "#process", sort_order: 2, children: [] },
+  { id: "proof", label: "Proof", type: "page", url: "#proof", sort_order: 3, children: [] },
+  { id: "contact", label: "Contact", type: "page", url: "#contact", sort_order: 4, children: [] },
 ];
 
 export const fallbackFaqs: Faq[] = [
@@ -283,6 +635,7 @@ export const fallbackFaqs: Faq[] = [
     answer:
       "Most focused launch sites can move from brief to production in one to three weeks, depending on content readiness and integrations.",
     category: "Delivery",
+    sort_order: 0,
   },
   {
     id: "faq-2",
@@ -290,6 +643,7 @@ export const fallbackFaqs: Faq[] = [
     answer:
       "Yes. The frontend is wired for Squareflo pages, navigation, settings, reviews, FAQs, forms, and feed entries.",
     category: "CMS",
+    sort_order: 1,
   },
   {
     id: "faq-3",
@@ -297,6 +651,7 @@ export const fallbackFaqs: Faq[] = [
     answer:
       "The interface uses restrained motion, strong contrast, stable layouts, and clear calls to action for professional buyers.",
     category: "Design",
+    sort_order: 2,
   },
 ];
 
@@ -335,12 +690,14 @@ export async function getSettings(): Promise<SiteSettings> {
   }
 }
 
-export async function getNavigation(location: "header" | "footer" = "header"): Promise<NavItem[]> {
+export async function getNavigation(
+  location: "header" | "footer" | "all" = "header",
+): Promise<NavItem[]> {
   try {
     const data = await cms<{ navigation: NavItem[] }>("/navigation", { location });
     return data.navigation?.length ? data.navigation : fallbackNavigation;
   } catch {
-    return fallbackNavigation;
+    return location === "footer" ? [] : fallbackNavigation;
   }
 }
 
@@ -363,7 +720,9 @@ export async function getHomePage(): Promise<CmsPage> {
 export async function getFaqs(): Promise<Faq[]> {
   try {
     const data = await cms<{ faqs: Faq[] }>("/faqs");
-    return data.faqs?.length ? data.faqs.slice(0, 5) : fallbackFaqs;
+    return data.faqs?.length
+      ? data.faqs.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+      : fallbackFaqs;
   } catch {
     return fallbackFaqs;
   }
@@ -373,11 +732,39 @@ export async function getReviews(): Promise<Review[]> {
   try {
     const data = await cms<{ reviews: Review[] }>("/reviews", {
       featured: true,
-      limit: 3,
+      limit: 6,
     });
     return data.reviews?.length ? data.reviews : fallbackReviews;
   } catch {
     return fallbackReviews;
+  }
+}
+
+export async function getModules(): Promise<CmsModule[]> {
+  try {
+    const data = await cms<{ modules: CmsModule[] }>("/modules");
+    return data.modules || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getFeedEntries(
+  module: string,
+  params?: Record<string, string | number | boolean | undefined>,
+): Promise<FeedEntry[]> {
+  if (!module) return [];
+
+  try {
+    const data = await cms<{ entries: FeedEntry[] }>("/feed-entries", {
+      module,
+      limit: 12,
+      sort: "sort_order",
+      ...params,
+    });
+    return data.entries || [];
+  } catch {
+    return [];
   }
 }
 
@@ -421,12 +808,34 @@ export async function submitForm(formId: string, values: Record<string, string>)
   }>;
 }
 
+function px(value: string | number | undefined) {
+  if (value === undefined || value === "") return undefined;
+  return typeof value === "number" ? `${value}px` : value;
+}
+
+function cssValue(value: string | number | undefined) {
+  if (value === undefined || value === "") return undefined;
+  return String(value);
+}
+
+function setToken(root: HTMLElement, key: string, value: string | number | undefined) {
+  const nextValue = cssValue(value);
+  if (nextValue) root.style.setProperty(key, nextValue);
+}
+
 export function applyDesignTokens(settings: SiteSettings) {
   const root = document.documentElement;
   const colors = settings.design?.colors || {};
+  const typography = settings.design?.typography || {};
   const buttons = settings.design?.buttons || {};
   const forms = settings.design?.forms || {};
   const primary = buttons.primary || {};
+  const secondary = buttons.secondary || {};
+  const outline = buttons.outline || {};
+  const ghost = buttons.ghost || {};
+  const h1 = typography.h1 || {};
+  const h2 = typography.h2 || {};
+  const body = typography.body || {};
 
   const tokenMap: Record<string, string | number | undefined> = {
     "--color-brand": colors.brand,
@@ -435,19 +844,51 @@ export function applyDesignTokens(settings: SiteSettings) {
     "--color-page-bg": colors.pageBg,
     "--color-bg-light": colors.bgTextLight,
     "--color-bg-dark": colors.bgTextDark,
+    "--font-body": body.fontFamily || h1.fontFamily,
+    "--font-heading": h1.fontFamily || body.fontFamily,
+    "--font-h1": h1.fontFamily || body.fontFamily,
+    "--font-h2": h2.fontFamily || h1.fontFamily || body.fontFamily,
+    "--type-body-size": px(body.size),
+    "--type-body-weight": body.weight,
+    "--type-body-line": body.lineHeight,
+    "--type-h1-size": px(h1.size),
+    "--type-h1-weight": h1.weight,
+    "--type-h1-line": h1.lineHeight,
+    "--type-h1-spacing": px(h1.letterSpacing),
+    "--type-h2-size": px(h2.size),
+    "--type-h2-weight": h2.weight,
+    "--type-h2-line": h2.lineHeight,
+    "--type-h2-spacing": px(h2.letterSpacing),
     "--button-primary-bg": primary.fillColor,
     "--button-primary-bg-hover": primary.fillColorHover,
     "--button-primary-text": primary.textColor,
-    "--button-radius": primary.borderRadius ? `${primary.borderRadius}px` : undefined,
+    "--button-primary-text-hover": primary.textColorHover,
+    "--button-secondary-bg": secondary.fillColor,
+    "--button-secondary-bg-hover": secondary.fillColorHover,
+    "--button-secondary-text": secondary.textColor,
+    "--button-secondary-border": secondary.borderColor,
+    "--button-outline-bg": outline.fillColor,
+    "--button-outline-text": outline.textColor,
+    "--button-outline-border": outline.borderColor,
+    "--button-ghost-bg": ghost.fillColor,
+    "--button-ghost-text": ghost.textColor,
+    "--button-radius": px(primary.borderRadius || secondary.borderRadius || outline.borderRadius),
+    "--button-font-size": px(primary.fontSize),
+    "--button-font-weight": primary.fontWeight,
+    "--button-padding-h": px(primary.paddingH),
+    "--button-padding-v": px(primary.paddingV),
     "--field-bg": forms.fieldBgColor,
     "--field-border": forms.fieldBorderColor,
     "--field-border-focus": forms.fieldBorderColorFocus,
     "--field-text": forms.fieldTextColor,
-    "--field-radius": forms.fieldBorderRadius ? `${forms.fieldBorderRadius}px` : undefined,
-    "--field-height": forms.fieldHeight ? `${forms.fieldHeight}px` : undefined,
+    "--field-radius": px(forms.fieldBorderRadius),
+    "--field-height": px(forms.fieldHeight),
+    "--field-padding-h": px(forms.fieldPaddingH),
+    "--placeholder-color": forms.placeholderColor,
+    "--label-color": forms.labelColor,
+    "--label-font-size": px(forms.labelFontSize),
+    "--label-font-weight": forms.labelFontWeight,
   };
 
-  Object.entries(tokenMap).forEach(([key, value]) => {
-    if (value) root.style.setProperty(key, String(value));
-  });
+  Object.entries(tokenMap).forEach(([key, value]) => setToken(root, key, value));
 }
