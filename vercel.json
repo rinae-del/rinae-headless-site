@@ -7,6 +7,10 @@
       "handle": "filesystem"
     },
     {
+      "src": "/api/v1/(.*)",
+      "dest": "/api/squareflo?path=$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
