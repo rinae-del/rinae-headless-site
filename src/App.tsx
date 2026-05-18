@@ -12,7 +12,7 @@ import {
   getFaqs,
   getFeedEntries,
   getFormStructure,
-  getHomePage,
+  getPageForPath,
   getNavigation,
   getReviews,
   getSettings,
@@ -356,12 +356,13 @@ export default function App() {
     let active = true;
 
     async function loadCmsContent() {
+      const pathname = window.location.pathname;
       const [nextSettings, nextHeaderNav, nextFooterNav, nextPage, nextFaqs, nextReviews] =
         await Promise.all([
           getSettings(),
           getNavigation("header"),
           getNavigation("footer"),
-          getHomePage(),
+          getPageForPath(pathname),
           getFaqs(),
           getReviews(),
         ]);

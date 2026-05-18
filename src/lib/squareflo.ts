@@ -220,7 +220,7 @@ export type FeedEntry = {
   };
 };
 
-const DEFAULT_API_URL = "https://hizl.net/api/v1";
+const DEFAULT_API_URL = "https://squareflo.com/api/v1";
 
 export const squarefloApiUrl = (
   import.meta.env.VITE_SQUAREFLO_API_URL || DEFAULT_API_URL
@@ -682,15 +682,81 @@ export async function getHomePage(): Promise<CmsPage> {
     const data = await cms<{ pages: CmsPage[] }>("/pages", { home_only: true });
     if (data.pages?.[0]) return data.pages[0];
   } catch {
-    try {
-      const data = await cms<{ page: CmsPage }>("/pages/home");
-      if (data.page) return data.page;
-    } catch {
-      return fallbackHomePage;
-    }
+    // Continue to the broader page-list fallback below. The single-page CMS
+    // endpoint currently omits headless_content, so it cannot render the page.
   }
 
-  return fallbackHomePage;
+  try {
+    const data = await cms<{ pages: CmsPage[] }>("/pages");
+    const pages = data.pages || [];
+    return (
+      pages.find((page) => page.is_home) ||
+      pages.find((page) => page.slug === "home") ||
+      pages[0] ||
+      fallbackHomePage
+    );
+  } catch {
+    return fallbackHomePage;
+  }
+}
+
+function normalizePageSlug(pathname: string) {
+  const path = pathname.split(/[?#]/)[0] || "/";
+  return decodeURIComponent(path).replace(/^\/+|\/+$/g, "");
+}
+
+function pickHomePage(pages: CmsPage[]) {
+  return (
+    pages.find((page) => page.is_home) ||
+    pages.find((page) => page.slug === "home") ||
+    pages[0] ||
+    fallbackHomePage
+  );
+}
+
+export async function getPageForPath(pathname: string): Promise<CmsPage> {
+  const slug = normalizePageSlug(pathname);
+
+  try {
+    const data = await cms<{ pages: CmsPage[] }>("/pages");
+    const pages = data.pages || [];
+    if (!slug) return pickHomePage(pages);
+
+    return (
+      pages.find((page) => page.slug === slug) || {
+        ...fallbackHomePage,
+        id: "not-found",
+        slug,
+        title: "Page not found",
+        is_home: false,
+        headless_content: {
+          left: {
+            blocks: [
+              {
+                type: "heading",
+                id: "not-found-title",
+                text: "Page not found",
+                level: 1,
+              },
+              {
+                type: "paragraph",
+                id: "not-found-copy",
+                text: "This page is not published in the CMS yet.",
+              },
+            ],
+          },
+          right: { blocks: [] },
+        },
+        meta: {
+          title: "Page not found",
+          description: "This page is not published in the CMS yet.",
+          no_index: true,
+        },
+      }
+    );
+  } catch {
+    return fallbackHomePage;
+  }
 }
 
 export async function getFaqs(): Promise<Faq[]> {

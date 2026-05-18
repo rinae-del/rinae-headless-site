@@ -97,6 +97,10 @@ function fieldsOf(block: CmsBlock) {
   return Array.isArray(block.fields) ? block.fields : [];
 }
 
+function fieldKey(field: CmsField) {
+  return stringFrom(field.key || field.name || field.slug || field.id);
+}
+
 function resolveSourceValue(field: CmsField, context: CmsRenderContext) {
   if (!isEmpty(field.value)) return field.value;
 
@@ -133,7 +137,7 @@ function fieldRaw(
 ): unknown {
   const normalizedKeys = keys.map(normalizeKey);
   const field = fieldsOf(block).find((candidate) =>
-    normalizedKeys.includes(normalizeKey(candidate.key)),
+    normalizedKeys.includes(normalizeKey(fieldKey(candidate))),
   );
 
   return field ? resolveSourceValue(field, context) : undefined;
@@ -192,6 +196,35 @@ function parseArrayValue(value: unknown): SectionItem[] {
   return [];
 }
 
+function parseActionValue(value: unknown): SectionItem[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item !== "string") return item as SectionItem;
+        const [label, href, style] = item.split("|").map((part) => part.trim());
+        return { label, title: label, href, style };
+      })
+      .filter((item) => stringFrom(item.label || item.title));
+  }
+
+  if (typeof value !== "string" || !value.trim()) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return parseActionValue(parsed);
+  } catch {
+    return value
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [label, href, style] = line.split("|").map((part) => part.trim());
+        return { label, title: label, href, style };
+      })
+      .filter((item) => stringFrom(item.label || item.title));
+  }
+}
+
 function stripHtml(value: string) {
   return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -246,7 +279,21 @@ function imageFrom(value: unknown) {
 
 function sectionImage(block: CmsBlock, context: CmsRenderContext) {
   return imageFrom(
-    fieldRaw(block, ["background_image", "background", "image", "hero_image", "photo"], context),
+    fieldRaw(
+      block,
+      [
+        "background_image",
+        "hero_background_image",
+        "background",
+        "backgroundImage",
+        "bg_image",
+        "image",
+        "hero_image",
+        "heroImage",
+        "photo",
+      ],
+      context,
+    ),
   );
 }
 
@@ -278,7 +325,7 @@ function buttonStyle(value: string, fallback: string) {
 }
 
 function heroActions(block: CmsBlock, context: CmsRenderContext) {
-  const listedActions = parseArrayValue(fieldRaw(block, ["actions", "buttons", "ctas", "links"], context))
+  const listedActions = parseActionValue(fieldRaw(block, ["actions", "buttons", "ctas", "links"], context))
     .map((item, index) => ({
       label: itemText(item, ["label", "title", "text", "heading"]),
       href: itemText(item, ["href", "url", "link", "linkValue", "link_value"]),
@@ -293,16 +340,52 @@ function heroActions(block: CmsBlock, context: CmsRenderContext) {
 
   const primaryLabel = fieldString(
     block,
-    ["primary_label", "primary_text", "button_text", "cta_label"],
+    [
+      "primary_label",
+      "primary_text",
+      "primary_button_text",
+      "primary_button_label",
+      "primary_cta_text",
+      "primary_cta_label",
+      "button_text",
+      "button_label",
+      "cta_text",
+      "cta_label",
+      "start_text",
+      "start_label",
+    ],
     context,
   );
   const primaryLink = fieldString(
     block,
-    ["primary_link", "primary_url", "button_link", "button_url", "cta_link", "cta_url", "link", "linkValue"],
+    [
+      "primary_link",
+      "primary_url",
+      "primary_button_link",
+      "primary_button_url",
+      "primary_cta_link",
+      "primary_cta_url",
+      "button_link",
+      "button_url",
+      "cta_link",
+      "cta_url",
+      "start_link",
+      "start_url",
+      "link",
+      "linkValue",
+    ],
     context,
   );
-  const secondaryLabel = fieldString(block, ["secondary_label", "secondary_text"], context);
-  const secondaryLink = fieldString(block, ["secondary_link", "secondary_url"], context);
+  const secondaryLabel = fieldString(
+    block,
+    ["secondary_label", "secondary_text", "secondary_button_text", "secondary_button_label", "secondary_cta_text"],
+    context,
+  );
+  const secondaryLink = fieldString(
+    block,
+    ["secondary_link", "secondary_url", "secondary_button_link", "secondary_button_url", "secondary_cta_url"],
+    context,
+  );
 
   return [
     primaryLabel ? { label: primaryLabel, href: primaryLink, style: "primary" } : null,
@@ -326,17 +409,33 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 function HeroSection({ block, context }: Props) {
-  const title = fieldString(block, ["heading", "headline", "title"], context, context.page.title);
+  const title = fieldString(
+    block,
+    ["heading", "hero_heading", "headline", "hero_headline", "title", "hero_title", "main_heading", "h1"],
+    context,
+    context.page.title,
+  );
   const description = fieldString(
     block,
-    ["description", "subtitle", "lede", "body", "text"],
+    [
+      "description",
+      "hero_description",
+      "subtitle",
+      "hero_subtitle",
+      "subheading",
+      "lede",
+      "body",
+      "copy",
+      "text",
+      "supporting_text",
+    ],
     context,
     context.page.meta?.description ||
       context.settings.site.description ||
       context.settings.business.short_description ||
       "",
   );
-  const eyebrow = fieldString(block, ["eyebrow", "kicker", "label"], context);
+  const eyebrow = fieldString(block, ["eyebrow", "hero_eyebrow", "kicker", "label", "pretitle", "small_heading"], context);
   const image = sectionImage(block, context) || context.page.meta?.og_image || "";
   const metrics = sectionItems(block, context, ["metrics", "stats"]);
   const actions = heroActions(block, context);

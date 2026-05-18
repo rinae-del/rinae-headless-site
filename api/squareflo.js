@@ -1,12 +1,28 @@
-const DEFAULT_API_URL = "https://hizl.net/api/v1";
+const DEFAULT_API_URL = "https://squareflo.com/api/v1";
 
 function normalizePath(value) {
   const raw = Array.isArray(value) ? value.join("/") : value || "";
   return String(raw).replace(/^\/+/, "");
 }
 
+function resolveApiUrl(req) {
+  const configured = (process.env.SQUAREFLO_API_URL || DEFAULT_API_URL).replace(/\/$/, "");
+
+  try {
+    const configuredHost = new URL(configured).host.replace(/^www\./, "");
+    const requestHost = String(req.headers.host || "").replace(/^www\./, "");
+    if (configuredHost && configuredHost === requestHost) {
+      return DEFAULT_API_URL;
+    }
+  } catch {
+    return DEFAULT_API_URL;
+  }
+
+  return configured;
+}
+
 export default async function handler(req, res) {
-  const apiUrl = (process.env.SQUAREFLO_API_URL || DEFAULT_API_URL).replace(/\/$/, "");
+  const apiUrl = resolveApiUrl(req);
   const apiKey = process.env.SQUAREFLO_API_KEY || process.env.SQUAREFLO_DRAFT_KEY;
   const path = normalizePath(req.query.path);
 
