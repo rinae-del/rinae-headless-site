@@ -403,6 +403,40 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!cmsReady) return;
+
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        ".page-blocks > .proof-band, .page-blocks > .section, .page-blocks > .workbench-section, .page-blocks > .contact-section, .site-footer",
+      ),
+    );
+
+    if (!sections.length) return;
+
+    sections.forEach((section) => section.classList.add("section-reveal"));
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      sections.forEach((section) => section.classList.add("section-visible"));
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("section-visible");
+          observer.unobserve(entry.target);
+        });
+      },
+      { rootMargin: "0px 0px -12% 0px", threshold: 0.12 },
+    );
+
+    sections.forEach((section) => observer.observe(section));
+
+    return () => observer.disconnect();
+  }, [cmsReady, page.id]);
+
   const business = settings.business;
   const companyName = business.name || settings.site.name || "Rinae Web Studio";
   const navItems = useMemo(() => sortedNav(navigation), [navigation]);

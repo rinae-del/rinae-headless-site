@@ -1506,6 +1506,551 @@ img {
   font-weight: 700;
 }
 
+.page-blocks {
+  background:
+    linear-gradient(
+      180deg,
+      var(--color-page-bg) 0%,
+      color-mix(in srgb, var(--color-panel) 42%, var(--color-page-bg)) 42%,
+      var(--color-page-bg) 100%
+    );
+  position: relative;
+}
+
+.page-blocks > :is(.proof-band, .section, .workbench-section, .contact-section),
+.site-footer {
+  position: relative;
+}
+
+.section-reveal {
+  filter: blur(8px);
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 720ms ease,
+    transform 720ms cubic-bezier(0.19, 1, 0.22, 1),
+    filter 720ms ease;
+  will-change: opacity, transform, filter;
+}
+
+.section-visible {
+  filter: blur(0);
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.section-reveal :is(
+  .proof-grid > div,
+  .service-card,
+  .content-card,
+  .process-card,
+  .review-card,
+  .faq-list details,
+  .workbench-copy,
+  .terminal-visual,
+  .feature-media,
+  .contact-copy,
+  .contact-form
+) {
+  opacity: 0;
+  translate: 0 18px;
+  transition:
+    opacity 620ms ease var(--reveal-delay, 0ms),
+    translate 620ms cubic-bezier(0.19, 1, 0.22, 1) var(--reveal-delay, 0ms);
+}
+
+.section-visible :is(
+  .proof-grid > div,
+  .service-card,
+  .content-card,
+  .process-card,
+  .review-card,
+  .faq-list details,
+  .workbench-copy,
+  .terminal-visual,
+  .feature-media,
+  .contact-copy,
+  .contact-form
+) {
+  opacity: 1;
+  translate: 0;
+}
+
+:is(.proof-grid > div, .service-card, .content-card, .process-card, .review-card, .faq-list details):nth-child(2) {
+  --reveal-delay: 70ms;
+}
+
+:is(.proof-grid > div, .service-card, .content-card, .process-card, .review-card, .faq-list details):nth-child(3) {
+  --reveal-delay: 140ms;
+}
+
+:is(.proof-grid > div, .service-card, .content-card, .process-card, .review-card, .faq-list details):nth-child(4) {
+  --reveal-delay: 210ms;
+}
+
+:is(.proof-grid > div, .service-card, .content-card, .process-card, .review-card, .faq-list details):nth-child(5) {
+  --reveal-delay: 280ms;
+}
+
+:is(.proof-grid > div, .service-card, .content-card, .process-card, .review-card, .faq-list details):nth-child(6) {
+  --reveal-delay: 350ms;
+}
+
+.proof-band {
+  background:
+    linear-gradient(
+      135deg,
+      var(--color-brand),
+      color-mix(in srgb, var(--color-brand) 78%, var(--color-accent-deep)) 58%,
+      color-mix(in srgb, var(--color-brand) 82%, var(--color-accent))
+    );
+  border-bottom: 1px solid color-mix(in srgb, var(--color-on-dark) 10%, transparent);
+}
+
+.proof-grid div {
+  overflow: hidden;
+  position: relative;
+}
+
+.proof-grid div::after {
+  background: linear-gradient(180deg, var(--color-accent), var(--color-accent-deep));
+  content: "";
+  height: 42px;
+  left: 0;
+  opacity: 0.72;
+  position: absolute;
+  top: 24px;
+  width: 3px;
+}
+
+.section-heading {
+  position: relative;
+}
+
+.section-heading::after {
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-deep));
+  border-radius: 999px;
+  content: "";
+  display: block;
+  height: 3px;
+  margin-top: 24px;
+  width: 68px;
+}
+
+.section-heading.compact::after {
+  width: 54px;
+}
+
+.services-section {
+  padding-top: 108px;
+}
+
+.services-grid,
+.content-card-grid,
+.process-grid,
+.review-grid {
+  gap: 20px;
+}
+
+.service-card,
+.content-card,
+.process-card,
+.review-card {
+  isolation: isolate;
+  overflow: hidden;
+  position: relative;
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+.service-card::before,
+.content-card::before,
+.process-card::before,
+.review-card::before {
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-deep));
+  content: "";
+  height: 3px;
+  left: 0;
+  opacity: 0.82;
+  position: absolute;
+  right: 0;
+  top: 0;
+  transform: scaleX(0.28);
+  transform-origin: left;
+  transition: transform 240ms ease;
+  z-index: 0;
+}
+
+.service-card > *,
+.content-card > *,
+.process-card > *,
+.review-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.service-card:hover,
+.content-card:hover,
+.process-card:hover,
+.review-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 38%, var(--color-line));
+  box-shadow: 0 28px 70px rgba(19, 28, 42, 0.12);
+  transform: translateY(-6px);
+}
+
+.service-card:hover::before,
+.content-card:hover::before,
+.process-card:hover::before,
+.review-card:hover::before {
+  transform: scaleX(1);
+}
+
+.service-card,
+.content-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.service-card p,
+.content-card p,
+.process-card p,
+.review-card p {
+  color: color-mix(in srgb, var(--type-body-color-light) 82%, var(--color-muted));
+}
+
+.icon-tile {
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--color-accent) 12%, transparent);
+  transition:
+    background 220ms ease,
+    color 220ms ease,
+    transform 220ms ease;
+}
+
+.service-card:hover .icon-tile,
+.content-card:hover .icon-tile {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-deep));
+  color: var(--color-on-dark);
+  transform: translateY(-2px) rotate(-3deg);
+}
+
+.card-image {
+  transition: transform 420ms ease;
+}
+
+.content-card:hover .card-image,
+.service-card:hover .card-image {
+  transform: scale(1.035);
+}
+
+.card-link {
+  margin-top: auto;
+  padding-top: 18px;
+  transition: color 180ms ease, gap 180ms ease;
+}
+
+.card-link:hover,
+.card-link:focus-visible {
+  color: var(--color-accent-deep);
+  gap: 12px;
+  outline: none;
+}
+
+.workbench-section {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-panel) 96%, transparent),
+      color-mix(in srgb, var(--color-panel) 90%, transparent)
+    ),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-accent) 10%, var(--color-page-bg)),
+      color-mix(in srgb, var(--color-panel) 72%, var(--color-page-bg)) 48%,
+      color-mix(in srgb, var(--color-accent-deep) 10%, var(--color-page-bg))
+    );
+  border-bottom: 1px solid color-mix(in srgb, var(--color-line) 72%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--color-line) 72%, transparent);
+  margin: 8px 0;
+}
+
+.check-list li {
+  background: color-mix(in srgb, var(--color-panel) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-line) 78%, transparent);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.check-list svg {
+  background: color-mix(in srgb, var(--color-accent-deep) 12%, transparent);
+  border-radius: 999px;
+  padding: 2px;
+}
+
+.terminal-visual,
+.feature-media {
+  transform-origin: center;
+  transition:
+    box-shadow 260ms ease,
+    transform 260ms ease;
+}
+
+.terminal-visual:hover,
+.feature-media:hover {
+  box-shadow: 0 36px 90px rgba(19, 28, 42, 0.22);
+  transform: translateY(-4px);
+}
+
+.terminal-body p {
+  transition: background 180ms ease, transform 180ms ease;
+}
+
+.terminal-body p:hover {
+  background: color-mix(in srgb, var(--color-on-dark) 10%, transparent);
+  transform: translateX(4px);
+}
+
+.process-section {
+  padding-bottom: 104px;
+}
+
+.process-card span {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-panel));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-panel));
+  border-radius: 999px;
+  color: var(--color-accent-deep);
+  display: inline-flex;
+  min-height: 30px;
+  padding: 0 12px;
+  width: fit-content;
+}
+
+.process-card::after {
+  color: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  content: counter(process-step, decimal-leading-zero);
+  counter-increment: process-step;
+  font-family: var(--font-heading);
+  font-size: 5rem;
+  font-weight: 800;
+  line-height: 1;
+  position: absolute;
+  right: 18px;
+  top: 12px;
+  z-index: 0;
+}
+
+.process-grid {
+  counter-reset: process-step;
+}
+
+.reviews-section,
+.faq-section {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-panel) 72%, var(--color-page-bg)),
+      color-mix(in srgb, var(--color-page-bg) 90%, var(--color-panel))
+    );
+  border-bottom: 1px solid color-mix(in srgb, var(--color-line) 72%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--color-line) 72%, transparent);
+  margin: 0;
+  max-width: none;
+  padding-left: max(24px, calc((100% - 1180px) / 2));
+  padding-right: max(24px, calc((100% - 1180px) / 2));
+}
+
+.reviews-section {
+  padding-bottom: 88px;
+  padding-top: 88px;
+}
+
+.review-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.review-card p {
+  flex: 1 1 auto;
+}
+
+.stars {
+  background: color-mix(in srgb, var(--color-warning) 13%, transparent);
+  border-radius: 999px;
+  padding: 7px 9px;
+  width: fit-content;
+}
+
+.review-card footer {
+  margin-top: 28px;
+}
+
+.faq-section {
+  padding-bottom: 96px;
+  padding-top: 88px;
+}
+
+.faq-list {
+  max-width: 900px;
+}
+
+.faq-list details {
+  box-shadow: 0 18px 46px rgba(19, 28, 42, 0.055);
+  overflow: hidden;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.faq-list details:hover,
+.faq-list details[open] {
+  border-color: color-mix(in srgb, var(--color-accent) 28%, var(--color-line));
+  box-shadow: 0 22px 58px rgba(19, 28, 42, 0.08);
+}
+
+.faq-list summary {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.faq-list summary::after {
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-panel));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 18%, var(--color-panel));
+  border-radius: 999px;
+  color: var(--color-accent-deep);
+  content: "+";
+  display: grid;
+  flex: 0 0 auto;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 700;
+  height: 30px;
+  place-items: center;
+  transition: transform 180ms ease;
+  width: 30px;
+}
+
+.faq-list details[open] summary::after {
+  transform: rotate(45deg);
+}
+
+.contact-section {
+  background:
+    linear-gradient(
+      105deg,
+      color-mix(in srgb, var(--color-brand) 98%, transparent),
+      color-mix(in srgb, var(--color-brand) 88%, transparent) 62%,
+      color-mix(in srgb, var(--color-accent-deep) 54%, transparent)
+    ),
+    var(--contact-bg-image, url("https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1800&q=82"));
+  border-top: 1px solid color-mix(in srgb, var(--color-on-dark) 10%, transparent);
+  margin-top: 0;
+}
+
+.contact-copy {
+  align-self: center;
+}
+
+.contact-links a {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-on-dark) 14%, transparent);
+  padding-bottom: 5px;
+  transition: color 180ms ease, transform 180ms ease;
+}
+
+.contact-links a:hover,
+.contact-links a:focus-visible {
+  color: var(--color-on-dark);
+  outline: none;
+  transform: translateX(4px);
+}
+
+.contact-form {
+  backdrop-filter: blur(18px);
+}
+
+.field input,
+.field textarea,
+.field select {
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  transform: translateY(-1px);
+}
+
+.site-footer {
+  background:
+    linear-gradient(
+      135deg,
+      var(--color-brand),
+      color-mix(in srgb, var(--color-brand) 82%, var(--color-accent-deep))
+    );
+  min-height: 112px;
+}
+
+.footer-nav a,
+.site-footer > a {
+  transition: color 180ms ease, transform 180ms ease;
+}
+
+.footer-nav a:hover,
+.footer-nav a:focus-visible,
+.site-footer > a:hover,
+.site-footer > a:focus-visible {
+  color: var(--color-on-dark);
+  outline: none;
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .section-reveal,
+  .section-reveal :is(
+    .proof-grid > div,
+    .service-card,
+    .content-card,
+    .process-card,
+    .review-card,
+    .faq-list details,
+    .workbench-copy,
+    .terminal-visual,
+    .feature-media,
+    .contact-copy,
+    .contact-form
+  ) {
+    filter: none;
+    opacity: 1;
+    transform: none;
+    translate: 0;
+    transition: none;
+  }
+
+  .service-card:hover,
+  .content-card:hover,
+  .process-card:hover,
+  .review-card:hover,
+  .terminal-visual:hover,
+  .feature-media:hover,
+  .terminal-body p:hover,
+  .contact-links a:hover,
+  .footer-nav a:hover,
+  .site-footer > a:hover {
+    transform: none;
+  }
+}
+
 @media (max-width: 1040px) {
   .nav-menu {
     display: none;
