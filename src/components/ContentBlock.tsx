@@ -532,8 +532,10 @@ function CardSection({ block, context, variant }: Props & { variant: "services" 
           {items.map((item, index) => {
             const Icon = iconFor(item, index);
             const image = imageFrom(item.image || item.featured_image);
-            const itemTitle = itemText(item, ["title", "heading", "question"]);
-            const itemBody = itemText(item, ["text", "description", "body", "answer"]);
+            const itemTitle = itemText(item, ["title", "heading", "question", "label"]);
+            const itemBody =
+              itemText(item, ["text", "description", "body", "answer"]) ||
+              (stringFrom(item.label) ? itemText(item, ["title", "heading"]) : "");
             const url = itemText(item, ["url", "link", "href"]);
 
             return (
