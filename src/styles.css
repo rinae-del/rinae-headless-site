@@ -219,6 +219,37 @@ img {
   overflow-x: hidden;
 }
 
+.site-loading {
+  align-items: center;
+  background: var(--color-page-bg);
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.site-loading::after {
+  animation: loading-pulse 1s ease-in-out infinite;
+  background: var(--color-brand);
+  border-radius: 999px;
+  content: "";
+  height: 10px;
+  opacity: 0.34;
+  width: 10px;
+}
+
+@keyframes loading-pulse {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.76;
+    transform: scale(1.45);
+  }
+}
+
 .site-header {
   position: sticky;
   top: 0;

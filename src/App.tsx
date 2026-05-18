@@ -350,45 +350,50 @@ export default function App() {
   const [form, setForm] = useState<CmsForm | null>(null);
   const [activeFormId, setActiveFormId] = useState(contactFormId);
   const [feedEntries, setFeedEntries] = useState<Record<string, FeedEntry[]>>({});
+  const [cmsReady, setCmsReady] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
 
     async function loadCmsContent() {
-      const pathname = window.location.pathname;
-      const [nextSettings, nextHeaderNav, nextFooterNav, nextPage, nextFaqs, nextReviews] =
-        await Promise.all([
-          getSettings(),
-          getNavigation("header"),
-          getNavigation("footer"),
-          getPageForPath(pathname),
-          getFaqs(),
-          getReviews(),
+      try {
+        const pathname = window.location.pathname;
+        const [nextSettings, nextHeaderNav, nextFooterNav, nextPage, nextFaqs, nextReviews] =
+          await Promise.all([
+            getSettings(),
+            getNavigation("header"),
+            getNavigation("footer"),
+            getPageForPath(pathname),
+            getFaqs(),
+            getReviews(),
+          ]);
+
+        const inferredFormId = contactFormId || extractFormId(nextPage);
+        const feedModules = extractFeedModules(nextPage);
+        const [nextForm, feedPairs] = await Promise.all([
+          getFormStructure(inferredFormId),
+          Promise.all(
+            feedModules.map(async (module) => [module, await getFeedEntries(module)] as const),
+          ),
         ]);
 
-      const inferredFormId = contactFormId || extractFormId(nextPage);
-      const feedModules = extractFeedModules(nextPage);
-      const [nextForm, feedPairs] = await Promise.all([
-        getFormStructure(inferredFormId),
-        Promise.all(
-          feedModules.map(async (module) => [module, await getFeedEntries(module)] as const),
-        ),
-      ]);
+        if (!active) return;
 
-      if (!active) return;
-
-      applyDesignTokens(nextSettings);
-      syncDocumentHead(nextPage, nextSettings);
-      setSettings(nextSettings);
-      setNavigation(nextHeaderNav);
-      setFooterNavigation(nextFooterNav);
-      setPage(nextPage);
-      setFaqs(nextFaqs);
-      setReviews(nextReviews);
-      setForm(nextForm);
-      setActiveFormId(inferredFormId);
-      setFeedEntries(Object.fromEntries(feedPairs));
+        applyDesignTokens(nextSettings);
+        syncDocumentHead(nextPage, nextSettings);
+        setSettings(nextSettings);
+        setNavigation(nextHeaderNav);
+        setFooterNavigation(nextFooterNav);
+        setPage(nextPage);
+        setFaqs(nextFaqs);
+        setReviews(nextReviews);
+        setForm(nextForm);
+        setActiveFormId(inferredFormId);
+        setFeedEntries(Object.fromEntries(feedPairs));
+      } finally {
+        if (active) setCmsReady(true);
+      }
     }
 
     loadCmsContent();
@@ -426,6 +431,10 @@ export default function App() {
     }),
     [activeFormId, faqs, feedEntries, form, page, reviews, settings],
   );
+
+  if (!cmsReady) {
+    return <div className="site-loading" aria-label="Loading site content" />;
+  }
 
   return (
     <div className="site-shell">
