@@ -473,12 +473,19 @@ function HeroSection({ block, context }: Props) {
           ) : null}
           {metrics.length ? (
             <div className="hero-metrics" aria-label="Highlights">
-              {metrics.slice(0, 4).map((item, index) => (
-                <div key={`${itemText(item, ["label", "title"])}-${index}`}>
-                  <strong>{itemText(item, ["label", "title", "heading"])}</strong>
-                  <span>{itemText(item, ["text", "description", "body"])}</span>
-                </div>
-              ))}
+              {metrics.slice(0, 4).map((item, index) => {
+                const label = itemText(item, ["label", "title", "heading"]);
+                const description =
+                  itemText(item, ["text", "description", "body"]) ||
+                  (stringFrom(item.label) ? itemText(item, ["title", "heading"]) : "");
+
+                return (
+                  <div key={`${label}-${index}`}>
+                    <strong>{label}</strong>
+                    {description ? <span>{description}</span> : null}
+                  </div>
+                );
+              })}
             </div>
           ) : null}
         </div>
