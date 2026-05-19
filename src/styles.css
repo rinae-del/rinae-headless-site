@@ -179,7 +179,8 @@
 
 html {
   min-height: 100%;
-  overflow-x: clip;
+  overflow-x: hidden;
+  overflow-y: auto;
   scroll-behavior: smooth;
 }
 
@@ -193,14 +194,12 @@ body {
   letter-spacing: var(--type-body-spacing);
   line-height: var(--type-body-line);
   min-height: 100%;
-  overflow-x: clip;
-  overflow-y: auto;
+  overflow-x: hidden;
   text-transform: var(--type-body-case);
 }
 
 #root {
   min-height: 100%;
-  overflow-x: clip;
 }
 
 button,
@@ -226,7 +225,7 @@ img {
 
 .site-shell {
   min-height: 100dvh;
-  overflow-x: clip;
+  overflow-x: hidden;
 }
 
 .site-loading {
