@@ -992,6 +992,7 @@ export default function App() {
             entry={route.entry}
             related={route.related}
             copy={route.copy}
+            settings={settings}
           />
         ) : (
           <EventCalendarPage

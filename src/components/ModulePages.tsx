@@ -50,6 +50,7 @@ type ModuleDetailProps = {
   entry: FeedEntry;
   related: FeedEntry[];
   copy: ModulePageCopy;
+  settings?: SiteSettings;
 };
 
 type EventPageProps = {
@@ -264,34 +265,87 @@ export function ModuleListPage({
   );
 }
 
-export function ModuleDetailPage({ module, kind, entry, related, copy }: ModuleDetailProps) {
+export function ModuleDetailPage({ module, kind, entry, related, copy, settings }: ModuleDetailProps) {
   const slug = moduleSlug(module, kind);
   const title = kind === "faq" ? entry.data?.question?.toString() || feedEntryTitle(entry) : feedEntryTitle(entry);
   const image = feedEntryImage(entry);
   const body = feedEntryBodyHtml(entry);
   const summary = entrySummary(entry);
 
+  const business = settings?.business;
+
   return (
     <div className="page-blocks">
-      <article className="module-detail">
+      <article className={`module-detail module-detail-${kind}`}>
         <a className="module-back-link" href={moduleListPath(slug)}>
           <ArrowLeft aria-hidden="true" size={17} />
           Back to {copy.title}
         </a>
-        <header>
-          <EntryMeta entry={entry} kind={kind} />
-          <Rating value={entryRating(entry)} />
-          <h1>{title}</h1>
-          {summary ? <p>{summary}</p> : null}
-        </header>
-        {image ? (
-          <figure className="module-detail-media">
-            <img src={image} alt={title} />
-          </figure>
-        ) : null}
-        {body ? (
-          <div className="cms-rich-text module-detail-body" dangerouslySetInnerHTML={{ __html: body }} />
-        ) : null}
+        
+        <div className="module-detail-layout">
+          <div className="module-detail-main">
+            <header>
+              <EntryMeta entry={entry} kind={kind} />
+              <Rating value={entryRating(entry)} />
+              <h1>{title}</h1>
+              {summary ? <p className="detail-summary">{summary}</p> : null}
+            </header>
+            {image ? (
+              <figure className="module-detail-media">
+                <img src={image} alt={title} />
+              </figure>
+            ) : null}
+            {body ? (
+              <div className="cms-rich-text module-detail-body" dangerouslySetInnerHTML={{ __html: body }} />
+            ) : null}
+          </div>
+
+          {kind === "services" && business ? (
+            <aside className="module-detail-sidebar">
+              <div className="sidebar-cta-card">
+                <h3>Interested in this Service?</h3>
+                <p>Get in touch with our team of experts to discuss how we can help you achieve your goals.</p>
+                
+                <div className="sidebar-contact-info">
+                  {business.phone ? (
+                    <a href={`tel:${business.phone}`} className="sidebar-contact-item">
+                      <span className="contact-icon-wrapper">📞</span>
+                      <div>
+                        <span className="contact-label">Call Us</span>
+                        <strong className="contact-value">{business.phone}</strong>
+                      </div>
+                    </a>
+                  ) : null}
+                  
+                  {business.email ? (
+                    <a href={`mailto:${business.email}`} className="sidebar-contact-item">
+                      <span className="contact-icon-wrapper">✉️</span>
+                      <div>
+                        <span className="contact-label">Email Us</span>
+                        <strong className="contact-value">{business.email}</strong>
+                      </div>
+                    </a>
+                  ) : null}
+                </div>
+                
+                <a href="/contact" className="btn btn-primary sidebar-action-btn">
+                  <span>Get a Free Quote</span>
+                  <ArrowUpRight size={16} />
+                </a>
+              </div>
+
+              <div className="sidebar-features-card">
+                <h4>Why Choose Us?</h4>
+                <ul>
+                  <li>✓ High-Quality & Professional Standard</li>
+                  <li>✓ Tailored and Reliable Custom Solutions</li>
+                  <li>✓ Dedicated Expert Project Support</li>
+                  <li>✓ Trusted Partner to Leading Brands</li>
+                </ul>
+              </div>
+            </aside>
+          ) : null}
+        </div>
       </article>
 
       {related.length ? (
