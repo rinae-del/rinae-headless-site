@@ -626,9 +626,8 @@ function HeroSection({ block, context }: Props) {
   const slideTitle = itemText(activeSlide || {}, ["h1_heading", "heading", "headline", "title"]);
   const slideDescription = itemText(
     activeSlide || {},
-    ["first_paragraph", "description", "summary", "text", "body", "subtitle"],
+    ["subtitle", "first_paragraph", "description", "summary", "text", "body"],
   );
-  const slideEyebrow = itemText(activeSlide || {}, ["category", "eyebrow", "label", "subtitle"]);
   const title = activeSlide
     ? slideTitle || context.page.title
     : fieldString(
@@ -660,7 +659,7 @@ function HeroSection({ block, context }: Props) {
           "",
       );
   const eyebrow = activeSlide
-    ? slideEyebrow
+    ? ""
     : fieldString(
         block,
         ["eyebrow", "hero_eyebrow", "kicker", "label", "pretitle", "small_heading"],
@@ -671,7 +670,7 @@ function HeroSection({ block, context }: Props) {
     imageFrom(activeSlide?.cover_image || activeSlide?.featured_image || activeSlide?.image) ||
     context.page.meta?.og_image ||
     "";
-  const metrics = sectionItems(block, context, ["metrics", "stats"]);
+  const metrics = activeSlide ? [] : sectionItems(block, context, ["metrics", "stats"]);
   const slideActions = activeSlide
     ? [
         itemText(activeSlide, ["button_1_wording", "button1wording", "primary_label"])
