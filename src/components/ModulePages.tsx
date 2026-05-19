@@ -343,12 +343,37 @@ export function ModuleDetailPage({ module, kind, entry, related, copy, settings 
                   <li>✓ Trusted Partner to Leading Brands</li>
                 </ul>
               </div>
+
+              {related.filter((candidate) => candidate.id !== entry.id).length ? (
+                <div className="sidebar-related-card">
+                  <h4>More Services</h4>
+                  <div className="sidebar-related-list">
+                    {related
+                      .filter((candidate) => candidate.id !== entry.id)
+                      .slice(0, 3)
+                      .map((candidate) => {
+                        const itemTitle = feedEntryTitle(candidate);
+                        const itemImage = feedEntryImage(candidate);
+                        const itemHref = moduleEntryPath(slug, candidate.slug);
+                        return (
+                          <a href={itemHref} className="sidebar-related-item" key={candidate.id}>
+                            {itemImage ? <img src={itemImage} alt={itemTitle} /> : null}
+                            <div className="sidebar-related-item-text">
+                              <strong>{itemTitle}</strong>
+                              <span>Learn more &rarr;</span>
+                            </div>
+                          </a>
+                        );
+                      })}
+                  </div>
+                </div>
+              ) : null}
             </aside>
           ) : null}
         </div>
       </article>
 
-      {related.length ? (
+      {related.length && kind !== "services" ? (
         <section className="section related-section">
           <div className="section-heading compact">
             <p className="eyebrow dark">More</p>

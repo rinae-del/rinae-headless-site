@@ -600,9 +600,9 @@ img {
   background-position: center;
   background-size: cover;
   color: var(--color-on-dark);
-  height: calc(100svh - 136px);
-  max-height: 760px;
-  min-height: 560px;
+  height: 520px;
+  max-height: 520px;
+  min-height: 460px;
   position: relative;
 }
 
@@ -2511,7 +2511,7 @@ img {
 
   .hero {
     height: auto;
-    min-height: 610px;
+    min-height: 480px;
   }
 
   .hero-inner {
@@ -3043,5 +3043,89 @@ img {
 }
 
 .cms-rich-text.module-detail-body a:hover {
+  color: var(--color-accent-deep) !important;
+}
+
+/* Sidebar Related Services Styling */
+.sidebar-related-card {
+  background: var(--color-panel) !important;
+  border: 1px solid color-mix(in srgb, var(--color-line) 80%, transparent) !important;
+  border-radius: 14px !important;
+  padding: 24px 28px !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05),
+              0 20px 40px -15px rgba(0, 0, 0, 0.06) !important;
+}
+
+.sidebar-related-card h4 {
+  color: var(--color-ink) !important;
+  font-size: 1.02rem !important;
+  font-weight: 700 !important;
+  margin: 0 0 16px !important;
+  letter-spacing: -0.01em;
+}
+
+.sidebar-related-list {
+  display: grid;
+  gap: 14px;
+}
+
+.sidebar-related-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px;
+  text-decoration: none !important;
+  padding-bottom: 12px !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-line) 30%, transparent) !important;
+  transition: transform 250ms ease !important;
+}
+
+.sidebar-related-item:last-child {
+  padding-bottom: 0 !important;
+  border-bottom: none !important;
+}
+
+.sidebar-related-item:hover {
+  transform: translateX(3px);
+}
+
+.sidebar-related-item img {
+  width: 52px !important;
+  height: 52px !important;
+  object-fit: cover !important;
+  border-radius: 8px !important;
+  flex: 0 0 auto !important;
+}
+
+.sidebar-related-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0; /* Prevents text overflow */
+}
+
+.sidebar-related-item-text strong {
+  display: block;
+  font-size: 0.9rem !important;
+  color: var(--color-ink) !important;
+  font-weight: 600 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 250ms ease !important;
+}
+
+.sidebar-related-item:hover .sidebar-related-item-text strong {
+  color: var(--color-accent) !important;
+}
+
+.sidebar-related-item-text span {
+  display: block;
+  font-size: 0.78rem !important;
+  color: var(--color-accent) !important;
+  font-weight: 700 !important;
+  transition: color 250ms ease !important;
+}
+
+.sidebar-related-item:hover .sidebar-related-item-text span {
   color: var(--color-accent-deep) !important;
 }
