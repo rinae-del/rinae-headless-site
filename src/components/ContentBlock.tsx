@@ -724,6 +724,8 @@ function CardSection({ block, context, variant }: Props & { variant: "services" 
   const id = sectionId(block, context, variant === "services" ? "services" : slugify(block.section_slug));
   const viewAll = sectionViewAll(block, context);
 
+  const displayedItems = variant === "services" ? items.slice(0, 4) : items;
+
   return (
     <section className={`section ${variant === "services" ? "services-section" : "cards-section"}`} id={id}>
       <div className="section-heading">
@@ -732,15 +734,19 @@ function CardSection({ block, context, variant }: Props & { variant: "services" 
         {description ? <p>{description}</p> : null}
       </div>
 
-      {items.length ? (
+      {displayedItems.length ? (
         <div className={variant === "services" ? "services-grid" : "content-card-grid"}>
-          {items.map((item, index) => {
+          {displayedItems.map((item, index) => {
             const Icon = iconFor(item, index);
             const image = imageFrom(item.image || item.featured_image);
             const itemTitle = itemText(item, ["title", "heading", "question", "label"]);
-            const itemBody =
+            const rawBody =
               itemText(item, ["text", "description", "body", "answer"]) ||
               (stringFrom(item.label) ? itemText(item, ["title", "heading"]) : "");
+            const itemBody =
+              variant === "services" && rawBody.length > 140
+                ? rawBody.slice(0, 137) + "..."
+                : rawBody;
             const url = itemText(item, ["url", "link", "href"]);
 
             return (

@@ -1758,6 +1758,151 @@ img {
   outline: none;
 }
 
+/* ==========================================================================
+   Refined Landing Page Services Section & Service Card Styles
+   ========================================================================== */
+
+.services-section {
+  background: radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--color-accent) 2%, transparent) 0%, transparent 50%),
+              radial-gradient(circle at 20% 80%, color-mix(in srgb, var(--color-accent-deep) 1.5%, transparent) 0%, transparent 60%);
+  position: relative;
+}
+
+.services-grid {
+  gap: 24px; /* slightly increased gap for a cleaner, spacious corporate layout */
+  margin-top: 48px;
+}
+
+.service-card {
+  background: var(--color-panel);
+  border: 1px solid color-mix(in srgb, var(--color-line) 90%, transparent);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px -15px rgba(19, 28, 42, 0.05),
+              0 2px 4px -2px rgba(19, 28, 42, 0.02);
+  padding: 32px 28px;
+  min-height: 310px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transition: border-color 350ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 350ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 350ms cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 350ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.service-card::before {
+  background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-deep) 100%);
+  content: "";
+  height: 4px;
+  left: 0;
+  opacity: 0.9;
+  position: absolute;
+  right: 0;
+  top: 0;
+  transform: scaleX(0.18);
+  transform-origin: left;
+  transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 2;
+}
+
+.service-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-line));
+  box-shadow: 0 20px 40px -12px color-mix(in srgb, var(--color-accent) 14%, transparent),
+              0 8px 16px -8px color-mix(in srgb, var(--color-accent-deep) 6%, transparent);
+  transform: translateY(-8px);
+  background-color: color-mix(in srgb, var(--color-accent) 1%, var(--color-panel));
+}
+
+.service-card:hover::before {
+  transform: scaleX(1);
+}
+
+.service-card .icon-tile {
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-panel));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 16%, var(--color-panel));
+  border-radius: 10px;
+  color: var(--color-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  box-shadow: 0 4px 12px -3px color-mix(in srgb, var(--color-accent) 8%, transparent);
+  transition: background 300ms cubic-bezier(0.16, 1, 0.3, 1),
+              color 300ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 300ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.service-card:hover .icon-tile {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-deep));
+  color: var(--color-on-dark);
+  border-color: transparent;
+  box-shadow: 0 10px 20px -6px color-mix(in srgb, var(--color-accent) 30%, transparent);
+  transform: translateY(-4px) scale(1.05);
+}
+
+.service-card h3 {
+  color: var(--type-h3-color-light);
+  font-family: var(--font-h3);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  margin: 24px 0 0;
+  transition: color 300ms ease;
+}
+
+.service-card:hover h3 {
+  color: var(--color-accent);
+}
+
+.service-card p {
+  color: color-mix(in srgb, var(--type-body-color-light) 74%, var(--color-muted));
+  font-family: var(--font-body);
+  font-size: 0.94rem;
+  font-weight: 400;
+  line-height: 1.6;
+  margin: 12px 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 4.8em; /* perfectly handles 3 lines */
+}
+
+.service-card .card-link {
+  color: var(--color-accent);
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.88rem;
+  font-weight: 700;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 24px;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  transition: color 300ms ease, gap 300ms ease;
+  width: fit-content;
+}
+
+.service-card .card-link svg {
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.service-card:hover .card-link {
+  color: var(--color-accent-deep);
+  gap: 9px;
+}
+
+.service-card:hover .card-link svg {
+  transform: translate(3px, -3px);
+}
+
 .workbench-section {
   background:
     linear-gradient(
