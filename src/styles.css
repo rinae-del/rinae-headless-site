@@ -3268,3 +3268,36 @@ img {
     flex: 0 0 260px;
   }
 }
+
+
+/* 6. Polished Services Page Dark Hero & Animation Override */
+
+.module-hero-services {
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--color-accent) 12%, transparent) 0%, transparent 50%),
+              radial-gradient(circle at 20% 80%, color-mix(in srgb, var(--color-accent-deep) 8%, transparent) 0%, transparent 60%),
+              var(--color-bg-dark) !important;
+}
+
+.module-hero-services::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(color-mix(in srgb, var(--color-on-dark) 4%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-on-dark) 4%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(circle at 80% 20%, #000 30%, transparent 85%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.module-hero-services > div {
+  position: relative;
+  z-index: 1;
+}
+
+.module-hero-services p {
+  max-width: 600px !important;
+}

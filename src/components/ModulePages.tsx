@@ -88,9 +88,9 @@ function entryRating(entry: FeedEntry) {
   return Number.isFinite(rating) && rating > 0 ? Math.min(5, Math.max(1, rating)) : 0;
 }
 
-function PageHero({ copy }: { copy: ModulePageCopy }) {
+function PageHero({ copy, kind }: { copy: ModulePageCopy; kind?: ModuleKind }) {
   return (
-    <section className="module-hero">
+    <section className={`module-hero ${kind ? `module-hero-${kind}` : ""}`}>
       <div>
         {copy.eyebrow ? <p className="eyebrow dark">{copy.eyebrow}</p> : null}
         <h1>{copy.title}</h1>
@@ -285,7 +285,7 @@ export function ModuleListPage({
 
   return (
     <div className="page-blocks">
-      <PageHero copy={copy} />
+      <PageHero copy={copy} kind={kind} />
       <section className="section module-list-section">
         {useFaqApi ? (
           <FaqApiList faqs={faqs} />
@@ -517,7 +517,7 @@ export function EventCalendarPage({ module, entries, copy, mode }: EventPageProp
 
   return (
     <div className="page-blocks">
-      <PageHero copy={copy} />
+      <PageHero copy={copy} kind="events" />
       <section className="section event-calendar-section">
         <div className="event-view-switch">
           <a className={mode === "calendar" ? "active" : ""} href={moduleCalendarPath(slug)}>

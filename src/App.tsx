@@ -845,6 +845,15 @@ export default function App() {
 
     if (!sections.length) return;
 
+    const isServicesPage = "moduleKind" in route && route.moduleKind === "services";
+
+    if (isServicesPage) {
+      sections.forEach((section) => {
+        section.classList.add("section-reveal", "section-visible");
+      });
+      return;
+    }
+
     sections.forEach((section) => section.classList.add("section-reveal"));
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -866,7 +875,7 @@ export default function App() {
     sections.forEach((section) => observer.observe(section));
 
     return () => observer.disconnect();
-  }, [cmsReady, page.id]);
+  }, [cmsReady, page.id, route]);
 
   const business = settings.business;
   const companyName = business.name || settings.site.name || "Rinae Web Studio";
