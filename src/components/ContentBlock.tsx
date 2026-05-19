@@ -744,8 +744,8 @@ function CardSection({ block, context, variant }: Props & { variant: "services" 
               itemText(item, ["text", "description", "body", "answer"]) ||
               (stringFrom(item.label) ? itemText(item, ["title", "heading"]) : "");
             const itemBody =
-              variant === "services" && rawBody.length > 140
-                ? rawBody.slice(0, 137) + "..."
+              variant === "services" && rawBody.length > 93
+                ? rawBody.slice(0, 90) + "..."
                 : rawBody;
             const url = itemText(item, ["url", "link", "href"]);
 
