@@ -638,28 +638,41 @@ img {
 
 .eyebrow {
   align-items: center;
-  color: color-mix(in srgb, var(--color-accent) 34%, var(--color-on-dark));
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-panel));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 14%, var(--color-line));
+  border-radius: 99px;
+  color: var(--color-accent);
   display: inline-flex;
   font-family: var(--font-small);
-  font-size: var(--type-small-size);
-  font-weight: var(--type-small-weight);
-  gap: 10px;
-  letter-spacing: var(--type-small-spacing);
-  line-height: var(--type-small-line);
+  font-size: 0.72rem;
+  font-weight: 700;
+  gap: 8px;
+  letter-spacing: 0.06em;
+  line-height: 1;
   margin: 0 0 18px;
-  text-transform: var(--type-small-case);
+  padding: 6px 14px;
+  text-transform: uppercase;
 }
 
 .eyebrow::before {
-  background: currentColor;
+  background: var(--color-accent);
+  border-radius: 50%;
   content: "";
   display: inline-block;
-  height: 2px;
-  width: 42px;
+  height: 6px;
+  width: 6px;
+  box-shadow: 0 0 8px var(--color-accent);
 }
 
 .eyebrow.dark {
+  background: color-mix(in srgb, var(--color-accent-deep) 6%, var(--color-panel));
+  border-color: color-mix(in srgb, var(--color-accent-deep) 14%, var(--color-line));
   color: var(--color-accent-deep);
+}
+
+.eyebrow.dark::before {
+  background: var(--color-accent-deep);
+  box-shadow: 0 0 8px var(--color-accent-deep);
 }
 
 .hero h1 {
@@ -1629,17 +1642,7 @@ img {
 }
 
 .section-heading::after {
-  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-deep));
-  border-radius: 999px;
-  content: "";
-  display: block;
-  height: 3px;
-  margin-top: 24px;
-  width: 68px;
-}
-
-.section-heading.compact::after {
-  width: 54px;
+  content: none;
 }
 
 .services-section {
@@ -1793,18 +1796,7 @@ img {
 }
 
 .service-card::before {
-  background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-deep) 100%);
-  content: "";
-  height: 4px;
-  left: 0;
-  opacity: 0.9;
-  position: absolute;
-  right: 0;
-  top: 0;
-  transform: scaleX(0.18);
-  transform-origin: left;
-  transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 2;
+  content: none;
 }
 
 .service-card:hover {
@@ -1813,10 +1805,6 @@ img {
               0 8px 16px -8px color-mix(in srgb, var(--color-accent-deep) 6%, transparent);
   transform: translateY(-8px);
   background-color: color-mix(in srgb, var(--color-accent) 1%, var(--color-panel));
-}
-
-.service-card:hover::before {
-  transform: scaleX(1);
 }
 
 .service-card .icon-tile {
