@@ -231,6 +231,43 @@ function ReviewsApiList({ reviews }: { reviews: Review[] }) {
   );
 }
 
+function ServiceListRow({
+  entry,
+  module,
+}: {
+  entry: FeedEntry;
+  module?: CmsModule;
+}) {
+  const slug = moduleSlug(module, "services");
+  const title = feedEntryTitle(entry);
+  const image = feedEntryImage(entry);
+  const summary = entrySummary(entry);
+  const href = moduleEntryPath(slug, entry.slug);
+
+  return (
+    <article className="service-list-row">
+      {image ? (
+        <a href={href} className="service-list-row-image">
+          <img src={image} alt={title} loading="lazy" />
+        </a>
+      ) : null}
+      <div className="service-list-row-body">
+        <div className="service-list-row-meta">
+          <Rating value={entryRating(entry)} />
+        </div>
+        <h3>
+          <a href={href}>{title}</a>
+        </h3>
+        {summary ? <p>{summary}</p> : null}
+        <a className="service-list-row-link" href={href}>
+          <span>View details</span>
+          <ArrowUpRight aria-hidden="true" size={16} />
+        </a>
+      </div>
+    </article>
+  );
+}
+
 export function ModuleListPage({
   module,
   kind,
@@ -238,10 +275,13 @@ export function ModuleListPage({
   faqs = [],
   reviews = [],
   copy,
+  settings,
 }: ModuleListProps) {
   const label = module?.name || copy.title;
   const useFaqApi = kind === "faq" && !module;
   const useReviewsApi = kind === "testimonials" && !module;
+
+  const business = settings?.business;
 
   return (
     <div className="page-blocks">
@@ -251,6 +291,52 @@ export function ModuleListPage({
           <FaqApiList faqs={faqs} />
         ) : useReviewsApi ? (
           <ReviewsApiList reviews={reviews} />
+        ) : kind === "services" && entries.length ? (
+          <div className="module-detail-layout">
+            <div className="module-detail-main">
+              <div className="service-list-container">
+                {entries.map((entry) => (
+                  <ServiceListRow entry={entry} module={module} key={entry.id} />
+                ))}
+              </div>
+            </div>
+            
+            {business ? (
+              <aside className="module-detail-sidebar">
+                <div className="sidebar-cta-card">
+                  <h3>Interested in our Services?</h3>
+                  <p>Get in touch with our team of experts to discuss how we can help you achieve your goals.</p>
+                  
+                  <div className="sidebar-contact-info">
+                    {business.phone ? (
+                      <a href={`tel:${business.phone}`} className="sidebar-contact-item">
+                        <span className="contact-icon-wrapper">📞</span>
+                        <div>
+                          <span className="contact-label">Call Us</span>
+                          <strong className="contact-value">{business.phone}</strong>
+                        </div>
+                      </a>
+                    ) : null}
+                    
+                    {business.email ? (
+                      <a href={`mailto:${business.email}`} className="sidebar-contact-item">
+                        <span className="contact-icon-wrapper">✉️</span>
+                        <div>
+                          <span className="contact-label">Email Us</span>
+                          <strong className="contact-value">{business.email}</strong>
+                        </div>
+                      </a>
+                    ) : null}
+                  </div>
+                  
+                  <a href="/contact" className="btn btn-primary sidebar-action-btn">
+                    <span>Get a Free Quote</span>
+                    <ArrowUpRight size={16} />
+                  </a>
+                </div>
+              </aside>
+            ) : null}
+          </div>
         ) : entries.length ? (
           <div className="module-grid">
             {entries.map((entry) => (
@@ -332,16 +418,6 @@ export function ModuleDetailPage({ module, kind, entry, related, copy, settings 
                   <span>Get a Free Quote</span>
                   <ArrowUpRight size={16} />
                 </a>
-              </div>
-
-              <div className="sidebar-features-card">
-                <h4>Why Choose Us?</h4>
-                <ul>
-                  <li>✓ High-Quality & Professional Standard</li>
-                  <li>✓ Tailored and Reliable Custom Solutions</li>
-                  <li>✓ Dedicated Expert Project Support</li>
-                  <li>✓ Trusted Partner to Leading Brands</li>
-                </ul>
               </div>
 
               {related.filter((candidate) => candidate.id !== entry.id).length ? (

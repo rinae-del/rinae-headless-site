@@ -3129,3 +3129,142 @@ img {
 .sidebar-related-item:hover .sidebar-related-item-text span {
   color: var(--color-accent-deep) !important;
 }
+
+
+/* 5. Services Listing Page - Horizontal List Redesign */
+
+.service-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.service-list-row {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-panel) !important;
+  border: 1px solid color-mix(in srgb, var(--color-line) 80%, transparent) !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04),
+              0 10px 24px -12px rgba(0, 0, 0, 0.05) !important;
+  transition: transform 250ms ease, box-shadow 250ms ease, border-color 250ms ease !important;
+}
+
+.service-list-row:hover {
+  transform: translateY(-2px) !important;
+  border-color: color-mix(in srgb, var(--color-accent) 20%, var(--color-line)) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04),
+              0 20px 40px -15px rgba(0, 0, 0, 0.08) !important;
+}
+
+.service-list-row-image {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background: var(--color-page-bg);
+  width: 100%;
+  aspect-ratio: 16 / 10;
+}
+
+.service-list-row-image img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  transition: transform 350ms ease !important;
+}
+
+.service-list-row:hover .service-list-row-image img {
+  transform: scale(1.04) !important;
+}
+
+.service-list-row-body {
+  flex: 1;
+  padding: 24px 28px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0; /* Prevents overflow issues */
+}
+
+.service-list-row-meta {
+  margin-bottom: 10px;
+  color: var(--color-accent);
+}
+
+.service-list-row-body h3 {
+  font-size: 1.35rem !important;
+  font-weight: 700 !important;
+  color: var(--color-ink) !important;
+  margin: 0 0 10px !important;
+  letter-spacing: -0.01em;
+  line-height: 1.3 !important;
+}
+
+.service-list-row-body h3 a {
+  color: inherit !important;
+  text-decoration: none !important;
+  transition: color 250ms ease !important;
+}
+
+.service-list-row-body h3 a:hover {
+  color: var(--color-accent) !important;
+}
+
+.service-list-row-body p {
+  font-size: 0.94rem !important;
+  line-height: 1.55 !important;
+  color: color-mix(in srgb, var(--type-body-color-light) 74%, var(--color-muted)) !important;
+  margin: 0 0 18px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.service-list-row-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px;
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  color: var(--color-accent) !important;
+  text-decoration: none !important;
+  transition: color 200ms ease !important;
+  margin-top: auto;
+}
+
+.service-list-row-link svg {
+  transition: transform 200ms ease !important;
+}
+
+.service-list-row:hover .service-list-row-link {
+  color: var(--color-accent-deep) !important;
+}
+
+.service-list-row:hover .service-list-row-link svg {
+  transform: translate(2px, -2px) !important;
+}
+
+/* Responsive Split Layout & Row Flex */
+@media (min-width: 768px) {
+  .service-list-row {
+    flex-direction: row;
+  }
+  
+  .service-list-row-image {
+    width: 240px;
+    height: 100%;
+    min-height: 180px;
+    aspect-ratio: auto;
+    flex: 0 0 240px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .service-list-row-image {
+    width: 260px;
+    flex: 0 0 260px;
+  }
+}
