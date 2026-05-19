@@ -145,6 +145,9 @@ function fieldRaw(
 }
 
 function stringFrom(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map(stringFrom).filter(Boolean).join(" ");
+  }
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (!value || typeof value !== "object") return "";
@@ -326,6 +329,11 @@ function blockFeedIdentifier(block: CmsBlock, context: CmsRenderContext) {
     event: "events",
     events: "events",
     calendar: "events",
+    hero: "hero-slides",
+    heroslides: "hero-slides",
+    heroslider: "hero-slides",
+    slider: "hero-slides",
+    slides: "hero-slides",
   };
 
   return (
@@ -613,11 +621,13 @@ function sectionViewAll(block: CmsBlock, context: CmsRenderContext) {
 }
 
 function HeroSection({ block, context }: Props) {
+  const feedSlides = sectionItems(block, context, ["slides", "items", "entries"]);
+  const activeSlide = feedSlides[0];
   const title = fieldString(
     block,
     ["heading", "hero_heading", "headline", "hero_headline", "title", "hero_title", "main_heading", "h1"],
     context,
-    context.page.title,
+    itemText(activeSlide || {}, ["h1_heading", "heading", "headline", "title"]) || context.page.title,
   );
   const description = fieldString(
     block,
@@ -634,15 +644,43 @@ function HeroSection({ block, context }: Props) {
       "supporting_text",
     ],
     context,
-    context.page.meta?.description ||
+    itemText(activeSlide || {}, ["subtitle", "first_paragraph", "description", "summary", "text", "body"]) ||
+      context.page.meta?.description ||
       context.settings.site.description ||
       context.settings.business.short_description ||
       "",
   );
-  const eyebrow = fieldString(block, ["eyebrow", "hero_eyebrow", "kicker", "label", "pretitle", "small_heading"], context);
-  const image = sectionImage(block, context) || context.page.meta?.og_image || "";
+  const eyebrow = fieldString(
+    block,
+    ["eyebrow", "hero_eyebrow", "kicker", "label", "pretitle", "small_heading"],
+    context,
+    itemText(activeSlide || {}, ["category", "label"]),
+  );
+  const image =
+    sectionImage(block, context) ||
+    imageFrom(activeSlide?.cover_image || activeSlide?.featured_image || activeSlide?.image) ||
+    context.page.meta?.og_image ||
+    "";
   const metrics = sectionItems(block, context, ["metrics", "stats"]);
-  const actions = heroActions(block, context);
+  const slideActions = activeSlide
+    ? [
+        itemText(activeSlide, ["button_1_wording", "button1wording", "primary_label"])
+          ? {
+              label: itemText(activeSlide, ["button_1_wording", "button1wording", "primary_label"]),
+              href: itemText(activeSlide, ["button_1_link", "button1link", "primary_link"]) || "#",
+              style: "primary",
+            }
+          : null,
+        itemText(activeSlide, ["button_2_wording", "button2wording", "secondary_label"])
+          ? {
+              label: itemText(activeSlide, ["button_2_wording", "button2wording", "secondary_label"]),
+              href: itemText(activeSlide, ["button_2_link", "button2link", "secondary_link"]) || "#",
+              style: "secondary",
+            }
+          : null,
+      ].filter(Boolean) as Array<{ label: string; href: string; style: string }>
+    : [];
+  const actions = slideActions.length ? slideActions : heroActions(block, context);
   const style = image
     ? ({
         "--hero-bg-image": `url("${image}")`,

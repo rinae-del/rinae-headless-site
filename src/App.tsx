@@ -90,6 +90,11 @@ function blockFeedIdentifier(block: CmsBlock) {
     event: "events",
     events: "events",
     calendar: "events",
+    hero: "hero-slides",
+    heroslides: "hero-slides",
+    heroslider: "hero-slides",
+    slider: "hero-slides",
+    slides: "hero-slides",
   };
 
   return (
@@ -162,6 +167,7 @@ function splitHero(page: CmsPage): {
         { key: "heading", source_field: "title", locked: true, value: "" },
         { key: "description", source_field: "description", locked: true, value: "" },
         { key: "background_image", source_field: "og_image", locked: true, value: "" },
+        { key: "module", value: "hero-slides" },
       ],
     },
     left,
@@ -776,11 +782,14 @@ export default function App() {
         const nextPage = nextRoute.page;
 
         const inferredFormId = contactFormId || extractFormId(nextPage);
-        const feedModules = extractFeedModules(nextPage);
+        const feedModules = new Set(extractFeedModules(nextPage));
+        if (normalizePath(pathname) === "" && !feedModules.has("hero-slides")) {
+          feedModules.add("hero-slides");
+        }
         const [nextForm, feedPairs] = await Promise.all([
           getFormStructure(inferredFormId),
           Promise.all(
-            feedModules.map(async (moduleName) => {
+            [...feedModules].map(async (moduleName) => {
               const cmsModule = findModule(modules, [moduleName]);
               const queryKey = cmsModule ? moduleQueryKey(cmsModule) : moduleName;
               return {
