@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { ContactForm } from "./ContactForm";
+import { moduleEntryPath, moduleListPath } from "../lib/squareflo";
 import type {
   CmsBlock,
   CmsField,
@@ -229,16 +230,104 @@ function stripHtml(value: string) {
   return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function entryToItem(entry: FeedEntry): SectionItem {
+function entryDataValue(entry: FeedEntry, key: string) {
+  const normalized = normalizeKey(key);
+  const data = entry.data || {};
+
+  if (normalized === "title" || normalized === "__title") return entry.title;
+  if (normalized === "slug" || normalized === "__slug") return entry.slug;
+  if (normalized === "status") return entry.status;
+  if (normalized === "createdat" || normalized === "__createdat") return entry.created_at;
+  if (normalized === "updatedat") return entry.updated_at;
+  if (normalized === "viewcount") return entry.view_count;
+  if (normalized === "sortorder") return entry.sort_order;
+  if (normalized === "tags" || normalized === "__tags") return entry.tags || data.tags;
+  if (normalized === "categories" || normalized === "category" || normalized === "__category") {
+    return entry.categories || data.category;
+  }
+  if (normalized === "author" || normalized === "creator") {
+    return [entry.author?.first_name, entry.author?.last_name].filter(Boolean).join(" ");
+  }
+
+  const exact = data[key];
+  if (!isEmpty(exact)) return exact;
+
+  const normalizedMatch = Object.entries(data).find(
+    ([dataKey]) => normalizeKey(dataKey) === normalized,
+  );
+  if (normalizedMatch && !isEmpty(normalizedMatch[1])) return normalizedMatch[1];
+
+  if (
+    ["thumbnailimage", "coverimage", "featuredimage", "image", "photo", "ogimage"].includes(
+      normalized,
+    )
+  ) {
+    return data.thumbnail_image || data.cover_image || data.featured_image || data.image || data.photo || data.og_image;
+  }
+
+  if (normalized === "h1heading" || normalized === "heading") {
+    return data.h1_heading || data.heading || entry.title;
+  }
+
+  if (normalized === "firstparagraph" || normalized === "description" || normalized === "summary") {
+    return data.first_paragraph || data.description || data.summary || data.excerpt || data.body;
+  }
+
+  return undefined;
+}
+
+function entryToItem(entry: FeedEntry, block?: CmsBlock, moduleSlug?: string): SectionItem {
   const data = entry.data || {};
   const text = stringFrom(data.excerpt || data.description || data.summary || data.body);
+  const mapped: SectionItem = {};
+
+  for (const field of fieldsOf(block || ({} as CmsBlock))) {
+    if (!field.source_field) continue;
+    const value = entryDataValue(entry, String(field.source_field));
+    if (!isEmpty(value)) mapped[fieldKey(field)] = value;
+  }
+
+  const title = stringFrom(mapped.title || mapped.heading) || entry.title;
+  const body = stringFrom(mapped.text || mapped.description || mapped.body) || stripHtml(text);
+  const image =
+    imageFrom(mapped.image || mapped.featured_image || mapped.thumbnail_image || mapped.cover_image) ||
+    imageFrom(data.featured_image || data.image || data.photo || data.thumbnail || data.cover_image);
+
   return {
-    title: entry.title,
-    text: stripHtml(text),
-    image: data.featured_image || data.image || data.photo || data.thumbnail,
-    url: `/${entry.slug}`,
+    ...mapped,
+    title,
+    heading: mapped.heading || mapped.title || title,
+    text: stripHtml(body),
+    description: mapped.description || mapped.text || stripHtml(body),
+    image,
+    featured_image: image,
+    url: moduleEntryPath(moduleSlug || "content", entry.slug),
     label: entry.categories?.[0],
   };
+}
+
+function blockFeedIdentifier(block: CmsBlock, context: CmsRenderContext) {
+  return (
+    stringFrom(block.dynamic_feed_id) ||
+    stringFrom(block.feed_id) ||
+    stringFrom(block.module_id) ||
+    fieldString(
+      block,
+      [
+        "module",
+        "module_id",
+        "module_slug",
+        "feed",
+        "feed_id",
+        "feed_slug",
+        "source_module",
+        "source_module_id",
+        "entries_module",
+        "entries_module_id",
+      ],
+      context,
+    )
+  );
 }
 
 function sectionItems(
@@ -247,15 +336,70 @@ function sectionItems(
   keys = ["items", "cards", "features", "steps", "metrics", "stats", "entries"],
 ) {
   const directItems = parseArrayValue(fieldRaw(block, keys, context));
-  if (directItems.length) return directItems;
+  if (directItems.length) return limitSectionItems(block, context, directItems);
 
-  const moduleSlug = fieldString(
-    block,
-    ["module", "module_slug", "feed", "feed_slug", "source_module", "entries_module"],
-    context,
-  );
+  const moduleSlug = blockFeedIdentifier(block, context);
   const entries = moduleSlug ? context.feedEntries?.[moduleSlug] || [] : [];
-  return entries.map(entryToItem);
+  return limitSectionItems(
+    block,
+    context,
+    filterAndSortEntries(block, context, entries).map((entry) => entryToItem(entry, block, moduleSlug)),
+  );
+}
+
+function sectionNumber(block: CmsBlock, context: CmsRenderContext, keys: string[], fallback: number) {
+  const raw = fieldString(block, keys, context);
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function limitSectionItems(block: CmsBlock, context: CmsRenderContext, items: SectionItem[]) {
+  const limit = sectionNumber(block, context, ["limit", "count", "item_count", "items_count"], items.length);
+  return items.slice(0, limit);
+}
+
+function filterAndSortEntries(block: CmsBlock, context: CmsRenderContext, entries: FeedEntry[]) {
+  let result = entries.slice();
+  const category = fieldString(block, ["category", "filter_category"], context).toLowerCase();
+  const tag = fieldString(block, ["tag", "filter_tag"], context).toLowerCase();
+  const sort = fieldString(block, ["sort", "sort_by", "order"], context, "sort_order");
+
+  if (category) {
+    result = result.filter((entry) =>
+      (entry.categories || []).some((item) => item.toLowerCase() === category),
+    );
+  }
+
+  if (tag) {
+    result = result.filter((entry) => {
+      const tags =
+        entry.tags ||
+        (Array.isArray(entry.data?.tags)
+          ? entry.data.tags.map(stringFrom)
+          : typeof entry.data?.tags === "string"
+            ? entry.data.tags.split(",").map((item) => item.trim())
+            : []);
+      return tags.some((item) => item.toLowerCase() === tag);
+    });
+  }
+
+  const descending = sort.startsWith("-");
+  const sortKey = descending ? sort.slice(1) : sort;
+  result.sort((a, b) => {
+    const valueFor = (entry: FeedEntry) => {
+      if (sortKey === "title") return entry.title;
+      if (sortKey === "created_at") return entry.created_at;
+      if (sortKey === "updated_at") return entry.updated_at;
+      if (sortKey === "view_count") return entry.view_count;
+      return entry.sort_order;
+    };
+    const order = String(valueFor(a) ?? "").localeCompare(String(valueFor(b) ?? ""), undefined, {
+      numeric: true,
+    });
+    return descending ? -order : order;
+  });
+
+  return result;
 }
 
 function sectionId(block: CmsBlock, context: CmsRenderContext, fallback: string) {
@@ -267,6 +411,23 @@ function itemText(item: SectionItem, keys: string[], fallback = "") {
     const value = stringFrom(item[key]);
     if (value) return value;
   }
+
+  const normalizedKeys = keys.map(normalizeKey);
+  for (const [key, value] of Object.entries(item)) {
+    const normalizedItemKey = normalizeKey(key);
+    if (
+      normalizedKeys.some(
+        (candidate) =>
+          normalizedItemKey === candidate ||
+          normalizedItemKey.endsWith(candidate) ||
+          normalizedItemKey.includes(candidate),
+      )
+    ) {
+      const text = stringFrom(value);
+      if (text) return text;
+    }
+  }
+
   return fallback;
 }
 
@@ -408,6 +569,27 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
+function sectionViewAll(block: CmsBlock, context: CmsRenderContext) {
+  const moduleSlug = blockFeedIdentifier(block, context);
+  const label = fieldString(
+    block,
+    ["view_all_label", "viewall_label", "view_all_text", "all_label", "archive_label"],
+    context,
+  );
+  const url =
+    fieldString(
+      block,
+      ["view_all_url", "viewall_url", "view_all_link", "all_url", "archive_url"],
+      context,
+    ) || (moduleSlug ? moduleListPath(moduleSlug) : "");
+
+  if (!label && !url) return null;
+  return {
+    label: label || "View all",
+    url: url || "#",
+  };
+}
+
 function HeroSection({ block, context }: Props) {
   const title = fieldString(
     block,
@@ -518,6 +700,7 @@ function CardSection({ block, context, variant }: Props & { variant: "services" 
   const eyebrow = fieldString(block, ["eyebrow", "kicker", "label"], context, block.section_name || "");
   const items = sectionItems(block, context);
   const id = sectionId(block, context, variant === "services" ? "services" : slugify(block.section_slug));
+  const viewAll = sectionViewAll(block, context);
 
   return (
     <section className={`section ${variant === "services" ? "services-section" : "cards-section"}`} id={id}>
@@ -557,6 +740,15 @@ function CardSection({ block, context, variant }: Props & { variant: "services" 
               </article>
             );
           })}
+        </div>
+      ) : null}
+
+      {viewAll ? (
+        <div className="section-actions">
+          <a className="btn btn-outline" href={viewAll.url}>
+            <span>{viewAll.label}</span>
+            <ArrowUpRight aria-hidden="true" size={18} />
+          </a>
         </div>
       ) : null}
     </section>
@@ -661,6 +853,7 @@ function ReviewsSection({ block, context }: Props) {
   const description = fieldString(block, ["description", "subtitle", "body", "text"], context);
   const eyebrow = fieldString(block, ["eyebrow", "kicker", "label"], context, "Reviews");
   const fieldReviews = sectionItems(block, context, ["items", "reviews", "testimonials"]);
+  const viewAll = sectionViewAll(block, context);
   const reviews = fieldReviews.length
     ? fieldReviews.map((item, index) => ({
         id: `${itemText(item, ["author_name", "title"], "review")}-${index}`,
@@ -668,6 +861,7 @@ function ReviewsSection({ block, context }: Props) {
         rating: Number(item.rating) || 5,
         text: itemText(item, ["text", "description", "body"]),
         relative_time: itemText(item, ["relative_time", "date"]),
+        url: itemText(item, ["url", "link", "href"]),
       }))
     : context.reviews;
 
@@ -695,9 +889,23 @@ function ReviewsSection({ block, context }: Props) {
               <strong>{review.author_name}</strong>
               {review.relative_time ? <span>{review.relative_time}</span> : null}
             </footer>
+            {"url" in review && review.url ? (
+              <a className="card-link" href={review.url}>
+                <span>Read more</span>
+                <ArrowUpRight aria-hidden="true" size={17} />
+              </a>
+            ) : null}
           </article>
         ))}
       </div>
+      {viewAll ? (
+        <div className="section-actions">
+          <a className="btn btn-outline" href={viewAll.url}>
+            <span>{viewAll.label}</span>
+            <ArrowUpRight aria-hidden="true" size={18} />
+          </a>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -707,11 +915,13 @@ function FaqSection({ block, context }: Props) {
   const description = fieldString(block, ["description", "subtitle", "body", "text"], context);
   const eyebrow = fieldString(block, ["eyebrow", "kicker", "label"], context, "Questions");
   const fieldFaqs = sectionItems(block, context, ["items", "faqs", "questions"]);
+  const viewAll = sectionViewAll(block, context);
   const faqs = fieldFaqs.length
     ? fieldFaqs.map((item, index) => ({
         id: `${itemText(item, ["question", "title"], "faq")}-${index}`,
         question: itemText(item, ["question", "title", "heading"]),
         answer: itemText(item, ["answer", "text", "description", "body"]),
+        url: itemText(item, ["url", "link", "href"]),
       }))
     : context.faqs;
 
@@ -729,9 +939,23 @@ function FaqSection({ block, context }: Props) {
           <details key={faq.id} open={index === 0}>
             <summary>{faq.question}</summary>
             <p dangerouslySetInnerHTML={{ __html: faq.answer }} />
+            {"url" in faq && faq.url ? (
+              <a className="card-link" href={faq.url}>
+                <span>Read answer</span>
+                <ArrowUpRight aria-hidden="true" size={17} />
+              </a>
+            ) : null}
           </details>
         ))}
       </div>
+      {viewAll ? (
+        <div className="section-actions">
+          <a className="btn btn-outline" href={viewAll.url}>
+            <span>{viewAll.label}</span>
+            <ArrowUpRight aria-hidden="true" size={18} />
+          </a>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -796,6 +1020,7 @@ function GenericSection({ block, context }: Props) {
   const eyebrow = fieldString(block, ["eyebrow", "kicker", "label"], context);
   const image = sectionImage(block, context);
   const items = sectionItems(block, context);
+  const viewAll = sectionViewAll(block, context);
 
   return (
     <section className="section generic-section" id={sectionId(block, context, slugify(block.section_slug || block.section_name) || "content")}>
@@ -816,13 +1041,28 @@ function GenericSection({ block, context }: Props) {
           {items.map((item, index) => {
             const itemTitle = itemText(item, ["title", "heading", "question", "label"]);
             const itemBody = itemText(item, ["text", "description", "body", "answer"]);
+            const url = itemText(item, ["url", "link", "href"]);
             return (
               <article className="content-card" key={`${itemTitle}-${index}`}>
                 {itemTitle ? <h3>{itemTitle}</h3> : null}
                 {itemBody ? <p>{itemBody}</p> : null}
+                {url ? (
+                  <a className="card-link" href={url}>
+                    <span>View details</span>
+                    <ArrowUpRight aria-hidden="true" size={17} />
+                  </a>
+                ) : null}
               </article>
             );
           })}
+        </div>
+      ) : null}
+      {viewAll ? (
+        <div className="section-actions">
+          <a className="btn btn-outline" href={viewAll.url}>
+            <span>{viewAll.label}</span>
+            <ArrowUpRight aria-hidden="true" size={18} />
+          </a>
         </div>
       ) : null}
     </section>

@@ -2,22 +2,37 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, Menu, Phone, X } from "lucide-react";
 import { ContentBlock, type CmsRenderContext } from "./components/ContentBlock";
 import {
+  EventCalendarPage,
+  ModuleDetailPage,
+  ModuleListPage,
+  type ModuleKind,
+} from "./components/ModulePages";
+import {
   applyDesignTokens,
   contactFormId,
+  fallbackModuleForSlug,
   fallbackFaqs,
   fallbackHomePage,
   fallbackNavigation,
   fallbackReviews,
   fallbackSettings,
+  feedEntryDescription,
+  feedEntryImage,
+  feedEntryTitle,
   getFaqs,
+  getFeedEntry,
   getFeedEntries,
+  getFeedEntriesPage,
   getFormStructure,
-  getPageForPath,
+  getModules,
+  getPages,
   getNavigation,
   getReviews,
   getSettings,
+  slugifyContent,
   type CmsBlock,
   type CmsForm,
+  type CmsModule,
   type CmsPage,
   type Faq,
   type FeedEntry,
@@ -52,6 +67,26 @@ function fieldString(block: CmsBlock, keys: string[]) {
     normalizedKeys.includes(normalizeKey(candidate.key)),
   );
   return field ? stringFrom(field.value) : "";
+}
+
+function blockFeedIdentifier(block: CmsBlock) {
+  return (
+    stringFrom(block.dynamic_feed_id) ||
+    stringFrom(block.feed_id) ||
+    stringFrom(block.module_id) ||
+    fieldString(block, [
+      "module",
+      "module_id",
+      "module_slug",
+      "feed",
+      "feed_id",
+      "feed_slug",
+      "source_module",
+      "source_module_id",
+      "entries_module",
+      "entries_module_id",
+    ])
+  );
 }
 
 function walkBlocks(blocks: CmsBlock[], visit: (block: CmsBlock) => void) {
@@ -129,14 +164,7 @@ function extractFeedModules(page: CmsPage) {
 
   walkBlocks([...left, ...right], (block) => {
     if (block.type !== "section") return;
-    const moduleSlug = fieldString(block, [
-      "module",
-      "module_slug",
-      "feed",
-      "feed_slug",
-      "source_module",
-      "entries_module",
-    ]);
+    const moduleSlug = blockFeedIdentifier(block);
     if (moduleSlug) modules.add(moduleSlug);
   });
 
@@ -149,6 +177,357 @@ function isExternalUrl(url?: string) {
 
 function sortedNav(items: NavItem[]) {
   return items.slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+}
+
+type ModuleRouteIntent = {
+  moduleKind: ModuleKind;
+  moduleCandidates: string[];
+  copy: {
+    eyebrow?: string;
+    title: string;
+    description?: string;
+  };
+  mode?: "list" | "calendar";
+  detailSlug?: string;
+};
+
+type ResolvedRoute =
+  | { type: "page"; page: CmsPage }
+  | {
+      type: "module-list";
+      page: CmsPage;
+      module?: CmsModule;
+      moduleKind: ModuleKind;
+      entries: FeedEntry[];
+      copy: ModuleRouteIntent["copy"];
+    }
+  | {
+      type: "module-detail";
+      page: CmsPage;
+      module: CmsModule;
+      moduleKind: ModuleKind;
+      entry: FeedEntry;
+      related: FeedEntry[];
+      copy: ModuleRouteIntent["copy"];
+    }
+  | {
+      type: "event-calendar";
+      page: CmsPage;
+      module?: CmsModule;
+      entries: FeedEntry[];
+      mode: "list" | "calendar";
+      copy: ModuleRouteIntent["copy"];
+    };
+
+const routeCopy: Record<Exclude<ModuleKind, "generic">, ModuleRouteIntent["copy"]> = {
+  services: {
+    eyebrow: "Services",
+    title: "Services",
+    description: "Browse all services published in the CMS feed.",
+  },
+  blog: {
+    eyebrow: "Articles",
+    title: "Articles",
+    description: "Read the latest articles, updates, and resources from the CMS feed.",
+  },
+  testimonials: {
+    eyebrow: "Testimonials",
+    title: "Testimonials",
+    description: "Client stories and reviews can be listed here from feeds or review data.",
+  },
+  faq: {
+    eyebrow: "FAQ",
+    title: "FAQ",
+    description: "Answers from the FAQ module, with feed detail pages when available.",
+  },
+  events: {
+    eyebrow: "Events",
+    title: "Events",
+    description: "Upcoming events from the events feed.",
+  },
+};
+
+function createNotFoundPage(slug: string): CmsPage {
+  return {
+    ...fallbackHomePage,
+    id: `not-found-${slug || "home"}`,
+    slug,
+    title: "Page not found",
+    is_home: false,
+    headless_content: {
+      left: {
+        blocks: [
+          {
+            type: "heading",
+            id: "not-found-title",
+            text: "Page not found",
+            level: 1,
+          },
+          {
+            type: "paragraph",
+            id: "not-found-copy",
+            text: "This page is not published in the CMS yet.",
+          },
+        ],
+      },
+      right: { blocks: [] },
+    },
+    meta: {
+      title: "Page not found",
+      description: "This page is not published in the CMS yet.",
+      no_index: true,
+    },
+  };
+}
+
+function routePage(slug: string, title: string, description?: string, image?: string): CmsPage {
+  return {
+    ...fallbackHomePage,
+    id: `route-${slug || "home"}`,
+    slug,
+    title,
+    is_home: false,
+    headless_content: { left: { blocks: [] }, right: { blocks: [] } },
+    meta: {
+      title,
+      description,
+      og_title: title,
+      og_description: description,
+      og_image: image,
+    },
+  };
+}
+
+function normalizePath(pathname: string) {
+  return decodeURIComponent(pathname.split(/[?#]/)[0] || "/").replace(/^\/+|\/+$/g, "");
+}
+
+function moduleKindForSlug(slug: string): ModuleKind {
+  const normalized = normalizeKey(slug);
+  if (["service", "services"].includes(normalized)) return "services";
+  if (["blog", "blogs", "article", "articles"].includes(normalized)) return "blog";
+  if (["testimonial", "testimonials", "review", "reviews"].includes(normalized)) return "testimonials";
+  if (["faq", "faqs", "question", "questions"].includes(normalized)) return "faq";
+  if (["event", "events", "calendar", "eventcalendar"].includes(normalized)) return "events";
+  return "generic";
+}
+
+function defaultCopyForModule(module: CmsModule, moduleKind: ModuleKind): ModuleRouteIntent["copy"] {
+  if (moduleKind !== "generic") return routeCopy[moduleKind];
+  return {
+    eyebrow: module.name,
+    title: module.name,
+    description: module.description || `Browse ${module.name.toLowerCase()} entries from the CMS feed.`,
+  };
+}
+
+function knownRouteIntent(slug: string): ModuleRouteIntent | null {
+  const segments = slug.split("/").filter(Boolean);
+  const [first, second, third] = segments;
+
+  if (first === "services") {
+    return {
+      moduleKind: "services",
+      moduleCandidates: ["services", "service"],
+      copy: routeCopy.services,
+      detailSlug: second,
+    };
+  }
+
+  if (first === "blogs") {
+    return {
+      moduleKind: "blog",
+      moduleCandidates: ["blog", "blogs", "article", "articles"],
+      copy: routeCopy.blog,
+      detailSlug: second === "post" ? third : second,
+    };
+  }
+
+  if (first === "testimonials") {
+    return {
+      moduleKind: "testimonials",
+      moduleCandidates: ["testimonials", "testimonial", "reviews", "review"],
+      copy: routeCopy.testimonials,
+      detailSlug: second,
+    };
+  }
+
+  if (first === "faq") {
+    return {
+      moduleKind: "faq",
+      moduleCandidates: ["faq", "faqs", "questions", "question"],
+      copy: routeCopy.faq,
+      detailSlug: second,
+    };
+  }
+
+  if (first === "event-calendar") {
+    return {
+      moduleKind: "events",
+      moduleCandidates: ["events", "event", "calendar", "event-calendar"],
+      copy: routeCopy.events,
+      mode: second === "fullcalendar" ? "calendar" : "list",
+      detailSlug: second === "post" ? third : undefined,
+    };
+  }
+
+  return null;
+}
+
+function findCmsPage(pages: CmsPage[], slug: string) {
+  if (!slug) {
+    return (
+      pages.find((page) => page.is_home) ||
+      pages.find((page) => page.slug === "home") ||
+      pages[0] ||
+      fallbackHomePage
+    );
+  }
+
+  return pages.find((page) => normalizePath(page.slug) === slug);
+}
+
+function findModule(modules: CmsModule[], candidates: string[]) {
+  const normalizedCandidates = candidates.map(normalizeKey);
+  const found = modules.find((module) => {
+    const moduleValues = [module.slug, module.name, module.id].map((value) => normalizeKey(value || ""));
+    return moduleValues.some((value) => normalizedCandidates.includes(value));
+  });
+
+  if (found) return found;
+
+  const isFallbackSet = modules.length > 0 && modules.every((module) => module.id.startsWith("module-"));
+  return isFallbackSet ? fallbackModuleForSlug(candidates[0]) : undefined;
+}
+
+function faqToFeedEntry(faq: Faq): FeedEntry {
+  return {
+    id: faq.id,
+    title: faq.question,
+    slug: slugifyContent(faq.question) || faq.id,
+    published: true,
+    data: {
+      question: faq.question,
+      answer: faq.answer,
+      body: faq.answer,
+      category: faq.category,
+    },
+    categories: faq.category ? [faq.category] : [],
+    tags: faq.tags || [],
+    sort_order: faq.sort_order,
+    created_at: faq.created_at,
+    updated_at: faq.updated_at,
+  };
+}
+
+async function buildModuleRoute(
+  slug: string,
+  intent: ModuleRouteIntent,
+  modules: CmsModule[],
+  faqs: Faq[],
+  reviews: Review[],
+): Promise<ResolvedRoute> {
+  const module = findModule(modules, intent.moduleCandidates);
+  const copy = module ? defaultCopyForModule(module, intent.moduleKind) : intent.copy;
+  const moduleSlug = module?.slug || intent.moduleCandidates[0];
+
+  if (intent.detailSlug) {
+    const entry = module
+      ? await getFeedEntry(module.slug, intent.detailSlug)
+      : intent.moduleKind === "faq"
+        ? faqs.map(faqToFeedEntry).find((faq) => faq.slug === intent.detailSlug || faq.id === intent.detailSlug) || null
+        : null;
+
+    if (!entry) return { type: "page", page: createNotFoundPage(slug) };
+
+    const detailModule =
+      module ||
+      ({
+        id: "api-faq",
+        name: "FAQ",
+        slug: "faq",
+        description: routeCopy.faq.description,
+      } satisfies CmsModule);
+    const related = module ? await getFeedEntries(module.slug, { limit: 4, sort: "sort_order" }) : [];
+    const title = feedEntryTitle(entry);
+    const description = feedEntryDescription(entry);
+    const page = routePage(slug, title, description, feedEntryImage(entry));
+    return {
+      type: "module-detail",
+      page,
+      module: detailModule,
+      moduleKind: intent.moduleKind,
+      entry,
+      related,
+      copy,
+    };
+  }
+
+  if (intent.moduleKind === "events") {
+    const data = module
+      ? await getFeedEntriesPage(module.slug, { limit: 100, sort: "sort_order" })
+      : { entries: [], total: 0, limit: 100, offset: 0, module: moduleSlug };
+    const page = routePage(slug, copy.title, copy.description);
+    return {
+      type: "event-calendar",
+      page,
+      module,
+      entries: data.entries,
+      mode: intent.mode || "list",
+      copy,
+    };
+  }
+
+  const data = module
+    ? await getFeedEntriesPage(module.slug, { limit: 100, sort: "sort_order" })
+    : { entries: [], total: 0, limit: 100, offset: 0, module: moduleSlug };
+  const page = routePage(slug, copy.title, copy.description);
+  return {
+    type: "module-list",
+    page,
+    module,
+    moduleKind: intent.moduleKind,
+    entries: data.entries,
+    copy,
+  };
+}
+
+async function resolveRoute(
+  pathname: string,
+  pages: CmsPage[],
+  modules: CmsModule[],
+  faqs: Faq[],
+  reviews: Review[],
+): Promise<ResolvedRoute> {
+  const slug = normalizePath(pathname);
+  if (!slug) return { type: "page", page: findCmsPage(pages, slug) || fallbackHomePage };
+
+  const knownIntent = knownRouteIntent(slug);
+  if (knownIntent) return buildModuleRoute(slug, knownIntent, modules, faqs, reviews);
+
+  const page = findCmsPage(pages, slug);
+  if (page) return { type: "page", page };
+
+  const segments = slug.split("/").filter(Boolean);
+  if (segments.length === 1 || segments.length === 2 || (segments.length === 3 && segments[1] === "post")) {
+    const module = findModule(modules, [segments[0]]);
+    if (module) {
+      return buildModuleRoute(
+        slug,
+        {
+          moduleKind: moduleKindForSlug(module.slug),
+          moduleCandidates: [module.slug, module.name],
+          copy: defaultCopyForModule(module, moduleKindForSlug(module.slug)),
+          detailSlug: segments[1] === "post" ? segments[2] : segments[1],
+        },
+        modules,
+        faqs,
+        reviews,
+      );
+    }
+  }
+
+  return { type: "page", page: createNotFoundPage(slug) };
 }
 
 function upsertMeta(selector: string, create: () => HTMLMetaElement, content?: string) {
@@ -342,7 +721,7 @@ function PageContent({
 
 export default function App() {
   const [settings, setSettings] = useState<SiteSettings>(fallbackSettings);
-  const [page, setPage] = useState<CmsPage>(fallbackHomePage);
+  const [route, setRoute] = useState<ResolvedRoute>({ type: "page", page: fallbackHomePage });
   const [navigation, setNavigation] = useState<NavItem[]>(fallbackNavigation);
   const [footerNavigation, setFooterNavigation] = useState<NavItem[]>([]);
   const [faqs, setFaqs] = useState<Faq[]>(fallbackFaqs);
@@ -359,15 +738,18 @@ export default function App() {
     async function loadCmsContent() {
       try {
         const pathname = window.location.pathname;
-        const [nextSettings, nextHeaderNav, nextFooterNav, nextPage, nextFaqs, nextReviews] =
+        const [nextSettings, nextHeaderNav, nextFooterNav, pages, modules, nextFaqs, nextReviews] =
           await Promise.all([
             getSettings(),
             getNavigation("header"),
             getNavigation("footer"),
-            getPageForPath(pathname),
+            getPages(),
+            getModules(),
             getFaqs(),
             getReviews(),
           ]);
+        const nextRoute = await resolveRoute(pathname, pages, modules, nextFaqs, nextReviews);
+        const nextPage = nextRoute.page;
 
         const inferredFormId = contactFormId || extractFormId(nextPage);
         const feedModules = extractFeedModules(nextPage);
@@ -385,7 +767,7 @@ export default function App() {
         setSettings(nextSettings);
         setNavigation(nextHeaderNav);
         setFooterNavigation(nextFooterNav);
-        setPage(nextPage);
+        setRoute(nextRoute);
         setFaqs(nextFaqs);
         setReviews(nextReviews);
         setForm(nextForm);
@@ -403,12 +785,14 @@ export default function App() {
     };
   }, []);
 
+  const page = route.page;
+
   useEffect(() => {
     if (!cmsReady) return;
 
     const sections = Array.from(
       document.querySelectorAll<HTMLElement>(
-        ".page-blocks > .proof-band, .page-blocks > .section, .page-blocks > .workbench-section, .page-blocks > .contact-section, .site-footer",
+        ".page-blocks > .proof-band, .page-blocks > .section, .page-blocks > .workbench-section, .page-blocks > .contact-section, .page-blocks > .module-hero, .page-blocks > .module-detail, .site-footer",
       ),
     );
 
@@ -539,8 +923,37 @@ export default function App() {
       </header>
 
       <main>
-        <ContentBlock block={hero} context={context} />
-        <PageContent left={left} right={right} context={context} />
+        {route.type === "page" ? (
+          <>
+            <ContentBlock block={hero} context={context} />
+            <PageContent left={left} right={right} context={context} />
+          </>
+        ) : route.type === "module-list" ? (
+          <ModuleListPage
+            module={route.module}
+            kind={route.moduleKind}
+            entries={route.entries}
+            faqs={faqs}
+            reviews={reviews}
+            settings={settings}
+            copy={route.copy}
+          />
+        ) : route.type === "module-detail" ? (
+          <ModuleDetailPage
+            module={route.module}
+            kind={route.moduleKind}
+            entry={route.entry}
+            related={route.related}
+            copy={route.copy}
+          />
+        ) : (
+          <EventCalendarPage
+            module={route.module}
+            entries={route.entries}
+            mode={route.mode}
+            copy={route.copy}
+          />
+        )}
       </main>
 
       <footer className="site-footer">

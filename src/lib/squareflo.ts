@@ -34,6 +34,11 @@ export type CmsBlock = {
   section_slug?: string;
   section_name?: string;
   section_description?: string;
+  section_type?: string;
+  dynamic_source?: string;
+  dynamic_feed_id?: string;
+  module_id?: string;
+  feed_id?: string;
   columns?: Array<{ blocks?: CmsBlock[] }>;
   left?: { blocks?: CmsBlock[] };
   right?: { blocks?: CmsBlock[] };
@@ -146,6 +151,8 @@ export type Faq = {
   category?: string;
   tags?: string[];
   sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type Review = {
@@ -161,6 +168,7 @@ export type Review = {
   featured?: boolean;
   tags?: string[];
   location_id?: string;
+  created_at?: string;
 };
 
 export type CmsFormField = {
@@ -185,6 +193,7 @@ export type CmsModule = {
   name: string;
   slug: string;
   description?: string;
+  icon?: string;
   fields?: Array<{
     key: string;
     label: string;
@@ -215,9 +224,19 @@ export type FeedEntry = {
   meta?: {
     title?: string;
     description?: string;
+    og_title?: string;
+    og_description?: string;
     og_image?: string;
     canonical_url?: string | null;
   };
+};
+
+export type FeedEntriesPage = {
+  entries: FeedEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+  module: string;
 };
 
 const DEFAULT_API_URL = "https://squareflo.com/api/v1";
@@ -236,6 +255,191 @@ export const squarefloProxyUrl = import.meta.env.VITE_SQUAREFLO_PROXY_URL || "/a
 export const contactFormId = import.meta.env.VITE_SQUAREFLO_CONTACT_FORM_ID || "";
 
 export const hasCmsCredentials = Boolean(squarefloApiKey || squarefloProxyUrl);
+
+export function normalizeContentKey(value: string) {
+  return value.replace(/[\s_-]/g, "").toLowerCase();
+}
+
+export function slugifyContent(value?: string) {
+  return (value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+export function stringFrom(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (!value || typeof value !== "object") return "";
+
+  const record = value as Record<string, unknown>;
+  return stringFrom(
+    record.text ||
+      record.content ||
+      record.label ||
+      record.title ||
+      record.name ||
+      record.url ||
+      record.src ||
+      record.value,
+  );
+}
+
+export function stripHtml(value: string) {
+  return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function isEmpty(value: unknown) {
+  return (
+    value === undefined ||
+    value === null ||
+    value === "" ||
+    (Array.isArray(value) && value.length === 0)
+  );
+}
+
+export function imageFrom(value: unknown) {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  const record = value as Record<string, unknown>;
+  return stringFrom(record.src || record.url || record.image || record.secure_url || record.value);
+}
+
+function findDataValue(data: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const exact = data[key];
+    if (!isEmpty(exact)) return exact;
+  }
+
+  const normalizedKeys = keys.map(normalizeContentKey);
+  for (const [key, value] of Object.entries(data)) {
+    const normalized = normalizeContentKey(key);
+    if (normalizedKeys.includes(normalized) && !isEmpty(value)) return value;
+  }
+
+  return undefined;
+}
+
+export function feedEntryDataValue(entry: FeedEntry, keys: string | string[]) {
+  const keyList = Array.isArray(keys) ? keys : [keys];
+  const data = entry.data || {};
+  const normalizedKeys = keyList.map(normalizeContentKey);
+
+  if (normalizedKeys.some((key) => key === "title" || key === "__title")) return entry.title;
+  if (normalizedKeys.some((key) => key === "slug" || key === "__slug")) return entry.slug;
+  if (normalizedKeys.some((key) => key === "status")) return entry.status;
+  if (normalizedKeys.some((key) => key === "createdat" || key === "__createdat")) return entry.created_at;
+  if (normalizedKeys.some((key) => key === "updatedat")) return entry.updated_at;
+  if (normalizedKeys.some((key) => key === "viewcount")) return entry.view_count;
+  if (normalizedKeys.some((key) => key === "sortorder")) return entry.sort_order;
+  if (normalizedKeys.some((key) => key === "tags" || key === "__tags")) return entry.tags || data.tags;
+  if (normalizedKeys.some((key) => key === "categories" || key === "category" || key === "__category")) {
+    return entry.categories || data.category;
+  }
+  if (normalizedKeys.some((key) => key === "author" || key === "creator")) {
+    return [entry.author?.first_name, entry.author?.last_name].filter(Boolean).join(" ");
+  }
+
+  return findDataValue(data, keyList);
+}
+
+function firstText(entry: FeedEntry, keys: string[]) {
+  return stringFrom(feedEntryDataValue(entry, keys));
+}
+
+export function feedEntryTitle(entry: FeedEntry) {
+  return firstText(entry, ["h1_heading", "heading", "title"]) || entry.title;
+}
+
+export function feedEntryBodyHtml(entry: FeedEntry) {
+  return firstText(entry, [
+    "body",
+    "content",
+    "article",
+    "post_body",
+    "description",
+    "details",
+    "answer",
+    "testimonial",
+    "review",
+  ]);
+}
+
+export function feedEntryDescription(entry: FeedEntry) {
+  const value =
+    entry.meta?.description ||
+    firstText(entry, [
+      "excerpt",
+      "summary",
+      "first_paragraph",
+      "description",
+      "short_description",
+      "intro",
+      "answer",
+      "body",
+      "content",
+    ]);
+  return stripHtml(value);
+}
+
+export function feedEntryImage(entry: FeedEntry) {
+  return (
+    imageFrom(
+      feedEntryDataValue(entry, [
+        "featured_image",
+        "thumbnail_image",
+        "cover_image",
+        "image",
+        "photo",
+        "og_image",
+      ]),
+    ) ||
+    entry.meta?.og_image ||
+    ""
+  );
+}
+
+export function feedEntryAuthor(entry: FeedEntry) {
+  return firstText(entry, ["author", "writer", "created_by", "name"]) ||
+    [entry.author?.first_name, entry.author?.last_name].filter(Boolean).join(" ");
+}
+
+export function feedEntryDate(entry: FeedEntry) {
+  return firstText(entry, [
+    "date",
+    "published_at",
+    "event_date",
+    "start_date",
+    "start",
+    "created_at",
+  ]) || entry.created_at || "";
+}
+
+export function feedEntryStartDate(entry: FeedEntry) {
+  return firstText(entry, ["start", "start_date", "event_date", "date"]) || entry.created_at || "";
+}
+
+export function feedEntryEndDate(entry: FeedEntry) {
+  return firstText(entry, ["end", "end_date", "event_end_date"]);
+}
+
+export function feedEntryLocation(entry: FeedEntry) {
+  return firstText(entry, ["location", "venue", "address", "event_location"]);
+}
+
+export function feedEntryTags(entry: FeedEntry) {
+  const raw = feedEntryDataValue(entry, ["tags", "__tags"]);
+  if (Array.isArray(raw)) return raw.map(stringFrom).filter(Boolean);
+  if (typeof raw === "string") return raw.split(",").map((tag) => tag.trim()).filter(Boolean);
+  return entry.tags || [];
+}
+
+export function feedEntryCategories(entry: FeedEntry) {
+  const raw = feedEntryDataValue(entry, ["categories", "category", "__category"]);
+  if (Array.isArray(raw)) return raw.map(stringFrom).filter(Boolean);
+  if (typeof raw === "string") return [raw].filter(Boolean);
+  return entry.categories || [];
+}
 
 function buildCmsRequest(
   endpoint: string,
@@ -332,32 +536,10 @@ const fallbackSectionBlocks: CmsBlock[] = [
         value:
           "The frontend is structured for dynamic CMS content while keeping the visual system focused, premium, and easy to scan.",
       },
-      {
-        key: "items",
-        type: "json",
-        value: [
-          {
-            icon: "zap",
-            title: "Urgent launch sprints",
-            text: "Focused React builds for campaigns, rebrands, and investor-facing moments that cannot drift.",
-          },
-          {
-            icon: "layers",
-            title: "Headless CMS systems",
-            text: "Squareflo pages, navigation, settings, forms, FAQs, reviews, and feed content rendered with care.",
-          },
-          {
-            icon: "gauge",
-            title: "Performance polish",
-            text: "Fast interfaces with stable layouts, responsive details, and conversion paths that stay obvious.",
-          },
-          {
-            icon: "shield",
-            title: "Professional trust layer",
-            text: "Serious visual systems, accessible components, SEO metadata, and launch-ready structure.",
-          },
-        ],
-      },
+      { key: "module", type: "text", value: "services" },
+      { key: "limit", type: "number", value: 3 },
+      { key: "view_all_label", type: "text", value: "View all services" },
+      { key: "view_all_url", type: "text", value: "/services" },
     ],
   },
   {
@@ -422,6 +604,45 @@ const fallbackSectionBlocks: CmsBlock[] = [
           },
         ],
       },
+    ],
+  },
+  {
+    type: "section",
+    id: "fallback-articles",
+    section_slug: "articles",
+    section_name: "Articles",
+    fields: [
+      { key: "eyebrow", type: "text", value: "Articles" },
+      { key: "heading", type: "text", value: "Helpful updates from the CMS feed." },
+      {
+        key: "description",
+        type: "text",
+        value: "Blog and article cards are generated from feed entries and link to reusable detail pages.",
+      },
+      { key: "module", type: "text", value: "blog" },
+      { key: "limit", type: "number", value: 3 },
+      { key: "view_all_label", type: "text", value: "View all articles" },
+      { key: "view_all_url", type: "text", value: "/blogs" },
+    ],
+  },
+  {
+    type: "section",
+    id: "fallback-events",
+    section_slug: "events",
+    section_name: "Events",
+    fields: [
+      { key: "eyebrow", type: "text", value: "Events" },
+      { key: "heading", type: "text", value: "Upcoming events can be listed or shown on a calendar." },
+      {
+        key: "description",
+        type: "text",
+        value: "The same event feed powers preview cards, calendar pages, event lists, and event detail pages.",
+      },
+      { key: "module", type: "text", value: "events" },
+      { key: "limit", type: "number", value: 3 },
+      { key: "sort", type: "text", value: "sort_order" },
+      { key: "view_all_label", type: "text", value: "View event calendar" },
+      { key: "view_all_url", type: "text", value: "/event-calendar/fullcalendar" },
     ],
   },
   {
@@ -598,10 +819,11 @@ export const fallbackHomePage: CmsPage = {
 
 export const fallbackNavigation: NavItem[] = [
   { id: "home", label: "Home", type: "page", url: "/", sort_order: 0, children: [] },
-  { id: "services", label: "Services", type: "page", url: "#services", sort_order: 1, children: [] },
-  { id: "process", label: "Process", type: "page", url: "#process", sort_order: 2, children: [] },
-  { id: "proof", label: "Proof", type: "page", url: "#proof", sort_order: 3, children: [] },
-  { id: "contact", label: "Contact", type: "page", url: "#contact", sort_order: 4, children: [] },
+  { id: "services", label: "Services", type: "page", url: "/services", sort_order: 1, children: [] },
+  { id: "blogs", label: "Articles", type: "page", url: "/blogs", sort_order: 2, children: [] },
+  { id: "testimonials", label: "Testimonials", type: "page", url: "/testimonials", sort_order: 3, children: [] },
+  { id: "events", label: "Events", type: "page", url: "/event-calendar/list/all", sort_order: 4, children: [] },
+  { id: "contact", label: "Contact", type: "page", url: "#contact", sort_order: 5, children: [] },
 ];
 
 export const fallbackFaqs: Faq[] = [
@@ -658,6 +880,292 @@ export const fallbackReviews: Review[] = [
   },
 ];
 
+export const fallbackModules: CmsModule[] = [
+  {
+    id: "module-services",
+    name: "Services",
+    slug: "services",
+    description: "Reusable service pages powered by feed entries.",
+    fields: [
+      { key: "description", label: "Description", type: "rich_text" },
+      { key: "featured_image", label: "Featured Image", type: "image" },
+    ],
+  },
+  {
+    id: "module-blog",
+    name: "Blog",
+    slug: "blog",
+    description: "Articles and updates.",
+    fields: [
+      { key: "body", label: "Body", type: "rich_text" },
+      { key: "featured_image", label: "Featured Image", type: "image" },
+    ],
+  },
+  {
+    id: "module-testimonials",
+    name: "Testimonials",
+    slug: "testimonials",
+    description: "Client stories with optional detail pages.",
+    fields: [
+      { key: "body", label: "Story", type: "rich_text" },
+      { key: "rating", label: "Rating", type: "number" },
+    ],
+  },
+  {
+    id: "module-faq",
+    name: "FAQ",
+    slug: "faq",
+    description: "Question and answer entries.",
+    fields: [
+      { key: "answer", label: "Answer", type: "rich_text" },
+      { key: "category", label: "Category", type: "text" },
+    ],
+  },
+  {
+    id: "module-events",
+    name: "Events",
+    slug: "events",
+    description: "Events for list, calendar, and detail views.",
+    fields: [
+      { key: "start_date", label: "Start Date", type: "date" },
+      { key: "location", label: "Location", type: "text" },
+      { key: "body", label: "Details", type: "rich_text" },
+    ],
+  },
+];
+
+const fallbackFeedEntries: Record<string, FeedEntry[]> = {
+  services: [
+    {
+      id: "service-sample",
+      title: "Sample Service",
+      slug: "sample-slug",
+      published: true,
+      data: {
+        description:
+          "A feed-backed service card. Clients create services in the CMS once, then this template renders preview, list, and detail pages automatically.",
+        body:
+          "<p>This service detail page is generated from a feed entry. The same record can appear on the homepage, the Services listing, and its own detail URL.</p>",
+        icon: "layers",
+      },
+      categories: ["Services"],
+      sort_order: 0,
+      created_at: "2026-01-10T09:00:00Z",
+    },
+    {
+      id: "service-cms",
+      title: "CMS Implementation",
+      slug: "cms-implementation",
+      published: true,
+      data: {
+        description: "Connect Squareflo pages, feeds, sections, forms, navigation, and settings to a reusable frontend.",
+        body: "<p>Use the right CMS module for each piece of content and keep editing workflows simple for clients.</p>",
+        icon: "shield",
+      },
+      categories: ["Services"],
+      sort_order: 1,
+      created_at: "2026-01-12T09:00:00Z",
+    },
+    {
+      id: "service-launch",
+      title: "Launch Support",
+      slug: "launch-support",
+      published: true,
+      data: {
+        description: "Prepare content, routes, SEO metadata, forms, and responsive states for a confident launch.",
+        body: "<p>Reusable templates should be easy to launch repeatedly without rebuilding core pages by hand.</p>",
+        icon: "zap",
+      },
+      categories: ["Services"],
+      sort_order: 2,
+      created_at: "2026-01-14T09:00:00Z",
+    },
+  ],
+  blog: [
+    {
+      id: "blog-sample",
+      title: "Sample Article",
+      slug: "sample-slug",
+      published: true,
+      data: {
+        excerpt: "A feed-backed article that demonstrates the listing and detail flow.",
+        body:
+          "<p>Articles are regular feed entries. The homepage can preview recent entries, the blog route can list them all, and each article gets a reusable detail page.</p>",
+        featured_image:
+          "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1400&q=82",
+      },
+      categories: ["Updates"],
+      tags: ["CMS", "Template"],
+      sort_order: 0,
+      created_at: "2026-02-02T12:00:00Z",
+      meta: {
+        title: "Sample Article",
+        description: "A feed-backed article that demonstrates the listing and detail flow.",
+      },
+    },
+    {
+      id: "blog-modules",
+      title: "Choosing the right CMS module",
+      slug: "choosing-the-right-cms-module",
+      published: true,
+      data: {
+        excerpt: "Pages, feeds, FAQs, reviews, and forms each have a job.",
+        body: "<p>Use pages for composed static content, feeds for repeatable records, FAQs for answer libraries, and forms for submissions.</p>",
+      },
+      categories: ["Guides"],
+      sort_order: 1,
+      created_at: "2026-02-08T12:00:00Z",
+    },
+  ],
+  testimonials: [
+    {
+      id: "testimonial-sample",
+      title: "Sample Client",
+      slug: "sample-slug",
+      published: true,
+      data: {
+        author_name: "Sample Client",
+        role: "Operations Lead",
+        rating: 5,
+        summary: "The CMS workflow finally matched how our team creates content.",
+        body:
+          "<p>The reusable module pages gave us room to publish services, articles, testimonials, and events without asking for new templates each time.</p>",
+      },
+      categories: ["Testimonials"],
+      sort_order: 0,
+      created_at: "2026-02-15T12:00:00Z",
+    },
+    {
+      id: "testimonial-agency",
+      title: "Agency Partner",
+      slug: "agency-partner",
+      published: true,
+      data: {
+        author_name: "Agency Partner",
+        rating: 5,
+        summary: "The template turned one CMS setup into repeatable client launches.",
+        body: "<p>Feed-backed routes made the handoff cleaner for non-technical editors.</p>",
+      },
+      categories: ["Testimonials"],
+      sort_order: 1,
+      created_at: "2026-02-20T12:00:00Z",
+    },
+  ],
+  faq: [
+    {
+      id: "faq-sample",
+      title: "Can clients add new module pages without developers?",
+      slug: "sample-slug",
+      published: true,
+      data: {
+        question: "Can clients add new module pages without developers?",
+        answer:
+          "<p>Yes. For feed-backed modules, clients create entries in Squareflo and the frontend renders list and detail pages automatically.</p>",
+        category: "CMS",
+      },
+      categories: ["CMS"],
+      sort_order: 0,
+      created_at: "2026-03-01T12:00:00Z",
+    },
+  ],
+  events: [
+    {
+      id: "event-sample",
+      title: "Sample Event",
+      slug: "sample-slug",
+      published: true,
+      data: {
+        start_date: "2026-06-10",
+        end_date: "2026-06-10",
+        location: "Online",
+        summary: "A feed-backed event shown in both calendar and list views.",
+        body:
+          "<p>This event detail page is generated from the events feed. Add events in Squareflo to populate the calendar and event listings.</p>",
+      },
+      categories: ["Events"],
+      sort_order: 0,
+      created_at: "2026-03-05T12:00:00Z",
+    },
+    {
+      id: "event-workshop",
+      title: "CMS Content Workshop",
+      slug: "cms-content-workshop",
+      published: true,
+      data: {
+        start_date: "2026-07-18",
+        location: "Main Office",
+        summary: "A practical session for planning reusable sections and feed content.",
+        body: "<p>Editors can prepare services, articles, testimonials, FAQs, and events in the CMS before launch.</p>",
+      },
+      categories: ["Events"],
+      sort_order: 1,
+      created_at: "2026-03-08T12:00:00Z",
+    },
+  ],
+};
+
+const fallbackFeedAliases: Record<string, string> = {
+  service: "services",
+  services: "services",
+  article: "blog",
+  articles: "blog",
+  blog: "blog",
+  blogs: "blog",
+  testimonial: "testimonials",
+  testimonials: "testimonials",
+  review: "testimonials",
+  reviews: "testimonials",
+  question: "faq",
+  questions: "faq",
+  faq: "faq",
+  faqs: "faq",
+  event: "events",
+  events: "events",
+  calendar: "events",
+  eventcalendar: "events",
+};
+
+export function fallbackModuleForSlug(module: string) {
+  const normalized = normalizeContentKey(module);
+  const alias = fallbackFeedAliases[normalized] || slugifyContent(module);
+  return fallbackModules.find((candidate) => candidate.slug === alias);
+}
+
+export function fallbackFeedEntriesForModule(module: string) {
+  const normalized = normalizeContentKey(module);
+  const alias = fallbackFeedAliases[normalized] || slugifyContent(module);
+  return fallbackFeedEntries[alias] || [];
+}
+
+export function canonicalModuleSlug(module: string) {
+  const normalized = normalizeContentKey(module);
+  return fallbackFeedAliases[normalized] || slugifyContent(module);
+}
+
+export function moduleListPath(module: string) {
+  const slug = canonicalModuleSlug(module);
+  if (slug === "services") return "/services";
+  if (slug === "blog") return "/blogs";
+  if (slug === "testimonials") return "/testimonials";
+  if (slug === "faq") return "/faq";
+  if (slug === "events") return "/event-calendar/list/all";
+  return `/${slug}`;
+}
+
+export function moduleCalendarPath(module: string) {
+  return canonicalModuleSlug(module) === "events" ? "/event-calendar/fullcalendar" : moduleListPath(module);
+}
+
+export function moduleEntryPath(module: string, entrySlug: string) {
+  const slug = canonicalModuleSlug(module);
+  if (slug === "services") return `/services/${entrySlug}`;
+  if (slug === "blog") return `/blogs/post/${entrySlug}`;
+  if (slug === "testimonials") return `/testimonials/${entrySlug}`;
+  if (slug === "faq") return `/faq/${entrySlug}`;
+  if (slug === "events") return `/event-calendar/post/${entrySlug}`;
+  return `/${slug}/${entrySlug}`;
+}
+
 export async function getSettings(): Promise<SiteSettings> {
   try {
     return await cms<SiteSettings>("/settings");
@@ -700,6 +1208,15 @@ export async function getHomePage(): Promise<CmsPage> {
   }
 }
 
+export async function getPages(): Promise<CmsPage[]> {
+  try {
+    const data = await cms<{ pages: CmsPage[] }>("/pages");
+    return data.pages || [];
+  } catch {
+    return [];
+  }
+}
+
 function normalizePageSlug(pathname: string) {
   const path = pathname.split(/[?#]/)[0] || "/";
   return decodeURIComponent(path).replace(/^\/+|\/+$/g, "");
@@ -718,8 +1235,7 @@ export async function getPageForPath(pathname: string): Promise<CmsPage> {
   const slug = normalizePageSlug(pathname);
 
   try {
-    const data = await cms<{ pages: CmsPage[] }>("/pages");
-    const pages = data.pages || [];
+    const pages = await getPages();
     if (!slug) return pickHomePage(pages);
 
     return (
@@ -755,7 +1271,38 @@ export async function getPageForPath(pathname: string): Promise<CmsPage> {
       }
     );
   } catch {
-    return fallbackHomePage;
+    return slug
+      ? {
+          ...fallbackHomePage,
+          id: "not-found",
+          slug,
+          title: "Page not found",
+          is_home: false,
+          headless_content: {
+            left: {
+              blocks: [
+                {
+                  type: "heading",
+                  id: "not-found-title",
+                  text: "Page not found",
+                  level: 1,
+                },
+                {
+                  type: "paragraph",
+                  id: "not-found-copy",
+                  text: "This page is not published in the CMS yet.",
+                },
+              ],
+            },
+            right: { blocks: [] },
+          },
+          meta: {
+            title: "Page not found",
+            description: "This page is not published in the CMS yet.",
+            no_index: true,
+          },
+        }
+      : fallbackHomePage;
   }
 }
 
@@ -787,7 +1334,107 @@ export async function getModules(): Promise<CmsModule[]> {
     const data = await cms<{ modules: CmsModule[] }>("/modules");
     return data.modules || [];
   } catch {
-    return [];
+    return fallbackModules;
+  }
+}
+
+function applyFallbackFeedParams(
+  entries: FeedEntry[],
+  params?: Record<string, string | number | boolean | undefined>,
+) {
+  let result = entries.slice();
+  const category = params?.category ? String(params.category).toLowerCase() : "";
+  const tag = params?.tag ? String(params.tag).toLowerCase() : "";
+  const search = params?.search ? String(params.search).toLowerCase() : "";
+  const sort = params?.sort ? String(params.sort) : "sort_order";
+
+  if (category) {
+    result = result.filter((entry) =>
+      feedEntryCategories(entry).some((item) => item.toLowerCase() === category),
+    );
+  }
+
+  if (tag) {
+    result = result.filter((entry) =>
+      feedEntryTags(entry).some((item) => item.toLowerCase() === tag),
+    );
+  }
+
+  if (search) {
+    result = result.filter((entry) =>
+      [entry.title, entry.slug, feedEntryDescription(entry), feedEntryBodyHtml(entry)]
+        .join(" ")
+        .toLowerCase()
+        .includes(search),
+    );
+  }
+
+  const descending = sort.startsWith("-");
+  const sortKey = descending ? sort.slice(1) : sort;
+  result.sort((a, b) => {
+    const aValue =
+      sortKey === "title"
+        ? a.title
+        : sortKey === "created_at"
+          ? a.created_at
+          : sortKey === "updated_at"
+            ? a.updated_at
+            : sortKey === "view_count"
+              ? a.view_count
+              : a.sort_order;
+    const bValue =
+      sortKey === "title"
+        ? b.title
+        : sortKey === "created_at"
+          ? b.created_at
+          : sortKey === "updated_at"
+            ? b.updated_at
+            : sortKey === "view_count"
+              ? b.view_count
+              : b.sort_order;
+    const order = String(aValue ?? "").localeCompare(String(bValue ?? ""), undefined, {
+      numeric: true,
+    });
+    return descending ? -order : order;
+  });
+
+  return result;
+}
+
+export async function getFeedEntriesPage(
+  module: string,
+  params?: Record<string, string | number | boolean | undefined>,
+): Promise<FeedEntriesPage> {
+  const limit = Number(params?.limit || 12);
+  const offset = Number(params?.offset || 0);
+  if (!module) {
+    return { entries: [], total: 0, limit, offset, module: "" };
+  }
+
+  try {
+    const data = await cms<FeedEntriesPage>("/feed-entries", {
+      module,
+      limit,
+      offset,
+      sort: "sort_order",
+      ...params,
+    });
+    return {
+      entries: data.entries || [],
+      total: data.total || data.entries?.length || 0,
+      limit: data.limit || limit,
+      offset: data.offset || offset,
+      module: data.module || module,
+    };
+  } catch {
+    const fallbackEntries = applyFallbackFeedParams(fallbackFeedEntriesForModule(module), params);
+    return {
+      entries: fallbackEntries.slice(offset, offset + limit),
+      total: fallbackEntries.length,
+      limit,
+      offset,
+      module: fallbackModuleForSlug(module)?.slug || module,
+    };
   }
 }
 
@@ -795,18 +1442,18 @@ export async function getFeedEntries(
   module: string,
   params?: Record<string, string | number | boolean | undefined>,
 ): Promise<FeedEntry[]> {
-  if (!module) return [];
+  const data = await getFeedEntriesPage(module, params);
+  return data.entries;
+}
+
+export async function getFeedEntry(module: string, slug: string): Promise<FeedEntry | null> {
+  if (!module || !slug) return null;
 
   try {
-    const data = await cms<{ entries: FeedEntry[] }>("/feed-entries", {
-      module,
-      limit: 12,
-      sort: "sort_order",
-      ...params,
-    });
-    return data.entries || [];
+    const data = await cms<{ entry: FeedEntry }>(`/feed-entries/${slug}`, { module });
+    return data.entry || null;
   } catch {
-    return [];
+    return fallbackFeedEntriesForModule(module).find((entry) => entry.slug === slug) || null;
   }
 }
 
