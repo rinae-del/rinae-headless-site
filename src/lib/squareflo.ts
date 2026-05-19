@@ -268,6 +268,9 @@ export function slugifyContent(value?: string) {
 }
 
 export function stringFrom(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map(stringFrom).filter(Boolean).join(" ");
+  }
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (!value || typeof value !== "object") return "";
@@ -283,6 +286,31 @@ export function stringFrom(value: unknown): string {
       record.src ||
       record.value,
   );
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function contentBlocksToHtml(value: unknown) {
+  if (!Array.isArray(value)) return stringFrom(value);
+
+  return value
+    .map((block) => {
+      if (!block || typeof block !== "object") return "";
+      const record = block as Record<string, unknown>;
+      const type = normalizeContentKey(stringFrom(record.type));
+      const text = stringFrom(record.content || record.text || record.value);
+      if (!text) return "";
+      if (type === "heading" || type === "h2" || type === "h3") return `<h2>${escapeHtml(text)}</h2>`;
+      return `<p>${escapeHtml(text)}</p>`;
+    })
+    .filter(Boolean)
+    .join("");
 }
 
 export function stripHtml(value: string) {
@@ -352,7 +380,7 @@ export function feedEntryTitle(entry: FeedEntry) {
 }
 
 export function feedEntryBodyHtml(entry: FeedEntry) {
-  return firstText(entry, [
+  const raw = feedEntryDataValue(entry, [
     "body",
     "content",
     "article",
@@ -363,6 +391,7 @@ export function feedEntryBodyHtml(entry: FeedEntry) {
     "testimonial",
     "review",
   ]);
+  return contentBlocksToHtml(raw);
 }
 
 export function feedEntryDescription(entry: FeedEntry) {
@@ -1164,6 +1193,10 @@ export function moduleEntryPath(module: string, entrySlug: string) {
   if (slug === "faq") return `/faq/${entrySlug}`;
   if (slug === "events") return `/event-calendar/post/${entrySlug}`;
   return `/${slug}/${entrySlug}`;
+}
+
+export function moduleQueryKey(module: CmsModule) {
+  return module.id && !module.id.startsWith("module-") ? module.id : module.slug;
 }
 
 export async function getSettings(): Promise<SiteSettings> {

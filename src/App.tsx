@@ -29,6 +29,7 @@ import {
   getNavigation,
   getReviews,
   getSettings,
+  moduleQueryKey,
   slugifyContent,
   type CmsBlock,
   type CmsForm,
@@ -70,6 +71,27 @@ function fieldString(block: CmsBlock, keys: string[]) {
 }
 
 function blockFeedIdentifier(block: CmsBlock) {
+  const sectionSlug = slugify(block.section_slug || block.section_name || "");
+  const knownSectionModules: Record<string, string> = {
+    service: "services",
+    services: "services",
+    article: "blog",
+    articles: "blog",
+    blog: "blog",
+    blogs: "blog",
+    testimonial: "testimonials",
+    testimonials: "testimonials",
+    review: "testimonials",
+    reviews: "testimonials",
+    faq: "faq",
+    faqs: "faq",
+    question: "faq",
+    questions: "faq",
+    event: "events",
+    events: "events",
+    calendar: "events",
+  };
+
   return (
     stringFrom(block.dynamic_feed_id) ||
     stringFrom(block.feed_id) ||
@@ -86,6 +108,7 @@ function blockFeedIdentifier(block: CmsBlock) {
       "entries_module",
       "entries_module_id",
     ])
+    || knownSectionModules[sectionSlug]
   );
 }
 
@@ -430,10 +453,11 @@ async function buildModuleRoute(
   const module = findModule(modules, intent.moduleCandidates);
   const copy = module ? defaultCopyForModule(module, intent.moduleKind) : intent.copy;
   const moduleSlug = module?.slug || intent.moduleCandidates[0];
+  const queryKey = module ? moduleQueryKey(module) : moduleSlug;
 
   if (intent.detailSlug) {
     const entry = module
-      ? await getFeedEntry(module.slug, intent.detailSlug)
+      ? await getFeedEntry(queryKey, intent.detailSlug)
       : intent.moduleKind === "faq"
         ? faqs.map(faqToFeedEntry).find((faq) => faq.slug === intent.detailSlug || faq.id === intent.detailSlug) || null
         : null;
@@ -448,7 +472,7 @@ async function buildModuleRoute(
         slug: "faq",
         description: routeCopy.faq.description,
       } satisfies CmsModule);
-    const related = module ? await getFeedEntries(module.slug, { limit: 4, sort: "sort_order" }) : [];
+    const related = module ? await getFeedEntries(queryKey, { limit: 4, sort: "sort_order" }) : [];
     const title = feedEntryTitle(entry);
     const description = feedEntryDescription(entry);
     const page = routePage(slug, title, description, feedEntryImage(entry));
@@ -465,7 +489,7 @@ async function buildModuleRoute(
 
   if (intent.moduleKind === "events") {
     const data = module
-      ? await getFeedEntriesPage(module.slug, { limit: 100, sort: "sort_order" })
+      ? await getFeedEntriesPage(queryKey, { limit: 100, sort: "sort_order" })
       : { entries: [], total: 0, limit: 100, offset: 0, module: moduleSlug };
     const page = routePage(slug, copy.title, copy.description);
     return {
@@ -479,7 +503,7 @@ async function buildModuleRoute(
   }
 
   const data = module
-    ? await getFeedEntriesPage(module.slug, { limit: 100, sort: "sort_order" })
+    ? await getFeedEntriesPage(queryKey, { limit: 100, sort: "sort_order" })
     : { entries: [], total: 0, limit: 100, offset: 0, module: moduleSlug };
   const page = routePage(slug, copy.title, copy.description);
   return {
@@ -756,7 +780,14 @@ export default function App() {
         const [nextForm, feedPairs] = await Promise.all([
           getFormStructure(inferredFormId),
           Promise.all(
-            feedModules.map(async (module) => [module, await getFeedEntries(module)] as const),
+            feedModules.map(async (moduleName) => {
+              const cmsModule = findModule(modules, [moduleName]);
+              const queryKey = cmsModule ? moduleQueryKey(cmsModule) : moduleName;
+              return {
+                keys: [moduleName, cmsModule?.slug, cmsModule?.id].filter(Boolean) as string[],
+                entries: await getFeedEntries(queryKey),
+              };
+            }),
           ),
         ]);
 
@@ -772,7 +803,14 @@ export default function App() {
         setReviews(nextReviews);
         setForm(nextForm);
         setActiveFormId(inferredFormId);
-        setFeedEntries(Object.fromEntries(feedPairs));
+        setFeedEntries(
+          feedPairs.reduce<Record<string, FeedEntry[]>>((current, pair) => {
+            pair.keys.forEach((key) => {
+              current[key] = pair.entries;
+            });
+            return current;
+          }, {}),
+        );
       } finally {
         if (active) setCmsReady(true);
       }

@@ -307,6 +307,27 @@ function entryToItem(entry: FeedEntry, block?: CmsBlock, moduleSlug?: string): S
 }
 
 function blockFeedIdentifier(block: CmsBlock, context: CmsRenderContext) {
+  const sectionSlug = slugify(block.section_slug || block.section_name || "");
+  const knownSectionModules: Record<string, string> = {
+    service: "services",
+    services: "services",
+    article: "blog",
+    articles: "blog",
+    blog: "blog",
+    blogs: "blog",
+    testimonial: "testimonials",
+    testimonials: "testimonials",
+    review: "testimonials",
+    reviews: "testimonials",
+    faq: "faq",
+    faqs: "faq",
+    question: "faq",
+    questions: "faq",
+    event: "events",
+    events: "events",
+    calendar: "events",
+  };
+
   return (
     stringFrom(block.dynamic_feed_id) ||
     stringFrom(block.feed_id) ||
@@ -327,6 +348,7 @@ function blockFeedIdentifier(block: CmsBlock, context: CmsRenderContext) {
       ],
       context,
     )
+    || knownSectionModules[sectionSlug]
   );
 }
 
