@@ -739,7 +739,11 @@ function CardSection({ block, context, variant }: Props & { variant: "services" 
           {displayedItems.map((item, index) => {
             const Icon = iconFor(item, index);
             const image = imageFrom(item.image || item.featured_image);
-            const itemTitle = itemText(item, ["title", "heading", "question", "label"]);
+            const rawTitle = itemText(item, ["title", "heading", "question", "label"]) || "";
+            const itemTitle =
+              variant === "services" && rawTitle.length > 33
+                ? rawTitle.slice(0, 30) + "..."
+                : rawTitle;
             const rawBody =
               itemText(item, ["text", "description", "body", "answer"]) ||
               (stringFrom(item.label) ? itemText(item, ["title", "heading"]) : "");

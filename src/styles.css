@@ -636,39 +636,9 @@ img {
   width: min(790px, 100%);
 }
 
-.eyebrow {
-  align-items: center;
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-  color: var(--color-accent) !important;
-  display: inline-block;
-  font-family: var(--font-small);
-  font-size: 0.75rem !important;
-  font-weight: 700 !important;
-  gap: 0 !important;
-  letter-spacing: 0.14em !important;
-  line-height: 1;
-  margin: 0 0 24px !important;
-  padding: 0 0 6px !important;
-  border-bottom: 2px solid var(--color-accent) !important;
-  text-transform: uppercase;
-  width: fit-content;
-}
-
-.eyebrow::before {
-  content: none !important;
-}
-
+.eyebrow,
 .eyebrow.dark {
-  background: transparent !important;
-  border: none !important;
-  color: var(--color-accent-deep) !important;
-  border-bottom-color: var(--color-accent-deep) !important;
-}
-
-.eyebrow.dark::before {
-  content: none !important;
+  display: none !important;
 }
 
 .hero h1 {
@@ -810,6 +780,22 @@ img {
   line-height: var(--type-h2-line);
   margin: 0;
   text-transform: var(--type-h2-case);
+  position: relative;
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+
+.section-heading h2::after,
+.workbench-copy h2::after,
+.contact-copy h2::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 48px;
+  height: 3px;
+  background: var(--color-accent);
+  border-radius: 99px;
 }
 
 .section-heading p:not(.eyebrow),
@@ -1756,11 +1742,11 @@ img {
 
 .service-card {
   background: var(--color-panel);
-  border: 1px solid color-mix(in srgb, var(--color-line) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-line) 70%, transparent);
   border-radius: 12px;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05),
               0 10px 20px -12px rgba(0, 0, 0, 0.04);
-  padding: 32px 28px;
+  padding: 0 0 32px 0 !important; /* No top, left, or right padding */
   min-height: 310px;
   display: flex;
   flex-direction: column;
@@ -1778,28 +1764,26 @@ img {
 
 .service-card:hover {
   border-color: var(--color-accent);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05),
-              0 20px 25px -5px rgba(0, 0, 0, 0.05);
-  transform: translateY(-5px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04),
+              0 20px 25px -5px rgba(0, 0, 0, 0.04);
+  transform: translateY(-3px); /* Elegant subtle lift, not gimmicky */
 }
 
 .service-card .card-image,
 .content-card .card-image {
-  margin-top: -32px;
-  margin-left: -28px;
-  margin-right: -28px;
-  width: calc(100% + 56px); /* Pulls the image to cover left and right edges */
-  height: 170px;
-  object-fit: cover;
-  border-top-left-radius: 11px;
-  border-top-right-radius: 11px;
-  margin-bottom: 20px;
-  transition: transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  display: block;
+  width: 100% !important;
+  height: 180px !important;
+  object-fit: cover !important;
+  margin: 0 !important;
+  border-top-left-radius: 11px !important;
+  border-top-right-radius: 11px !important;
+  transition: transform 420ms cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .service-card:hover .card-image,
 .content-card:hover .card-image {
-  transform: scale(1.03);
+  transform: scale(1.025);
 }
 
 .service-card .icon-tile {
@@ -1812,6 +1796,7 @@ img {
   justify-content: center;
   width: 52px;
   height: 52px;
+  margin: 32px 28px 0 !important; /* Perfect inset margin */
   box-shadow: 0 4px 12px -3px color-mix(in srgb, var(--color-accent) 8%, transparent);
   transition: background 300ms cubic-bezier(0.16, 1, 0.3, 1),
               color 300ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -1825,7 +1810,7 @@ img {
   color: var(--color-on-dark);
   border-color: transparent;
   box-shadow: 0 10px 20px -6px color-mix(in srgb, var(--color-accent) 30%, transparent);
-  transform: translateY(-4px) scale(1.05);
+  transform: translateY(-2px) scale(1.03);
 }
 
 .service-card h3 {
@@ -1835,7 +1820,7 @@ img {
   font-weight: 700;
   letter-spacing: -0.015em;
   line-height: 1.35;
-  margin: 24px 0 0;
+  margin: 24px 28px 0 !important; /* Perfect inset margin */
   transition: color 300ms ease;
 }
 
@@ -1849,13 +1834,14 @@ img {
   font-size: 0.94rem;
   font-weight: 400;
   line-height: 1.6;
-  margin: 12px 0 0;
+  margin: 12px 28px 0 !important; /* Perfect inset margin */
+  padding: 0 !important;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-height: 3.2em; /* perfect for 2 lines of text after earlier truncation */
+  min-height: 3.2em;
 }
 
 .service-card .card-link {
@@ -1865,7 +1851,7 @@ img {
   font-size: 0.88rem;
   font-weight: 700;
   gap: 6px;
-  margin-top: auto;
+  margin: auto 28px 0 !important; /* Perfect inset margin at bottom */
   padding-top: 24px;
   text-decoration: none;
   letter-spacing: 0.01em;
@@ -1880,6 +1866,53 @@ img {
 .service-card:hover .card-link {
   color: var(--color-accent-deep);
   gap: 9px;
+}
+
+.service-card:hover .card-link svg {
+  transform: translate(3px, -3px);
+}
+
+/* Content Card overrides for modern zero-gap images */
+.content-card {
+  background: var(--color-panel) !important;
+  border: 1px solid color-mix(in srgb, var(--color-line) 70%, transparent) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05),
+              0 10px 20px -12px rgba(0, 0, 0, 0.04) !important;
+  padding: 0 0 24px 0 !important;
+  min-height: 265px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transition: border-color 350ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 350ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 350ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.content-card:hover {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04),
+              0 20px 25px -5px rgba(0, 0, 0, 0.04) !important;
+  transform: translateY(-3px) !important;
+}
+
+.content-card .icon-tile {
+  margin: 24px 24px 0 !important;
+}
+
+.content-card h3 {
+  margin: 20px 24px 0 !important;
+}
+
+.content-card p {
+  margin: 10px 24px 0 !important;
+  padding: 0 !important;
+}
+
+.content-card .card-link {
+  margin: auto 24px 0 !important;
 }
 
 .service-card:hover .card-link svg {
