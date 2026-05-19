@@ -623,39 +623,49 @@ function sectionViewAll(block: CmsBlock, context: CmsRenderContext) {
 function HeroSection({ block, context }: Props) {
   const feedSlides = sectionItems(block, context, ["slides", "items", "entries"]);
   const activeSlide = feedSlides[0];
-  const title = fieldString(
-    block,
-    ["heading", "hero_heading", "headline", "hero_headline", "title", "hero_title", "main_heading", "h1"],
-    context,
-    itemText(activeSlide || {}, ["h1_heading", "heading", "headline", "title"]) || context.page.title,
+  const slideTitle = itemText(activeSlide || {}, ["h1_heading", "heading", "headline", "title"]);
+  const slideDescription = itemText(
+    activeSlide || {},
+    ["first_paragraph", "description", "summary", "text", "body", "subtitle"],
   );
-  const description = fieldString(
-    block,
-    [
-      "description",
-      "hero_description",
-      "subtitle",
-      "hero_subtitle",
-      "subheading",
-      "lede",
-      "body",
-      "copy",
-      "text",
-      "supporting_text",
-    ],
-    context,
-    itemText(activeSlide || {}, ["subtitle", "first_paragraph", "description", "summary", "text", "body"]) ||
-      context.page.meta?.description ||
-      context.settings.site.description ||
-      context.settings.business.short_description ||
-      "",
-  );
-  const eyebrow = fieldString(
-    block,
-    ["eyebrow", "hero_eyebrow", "kicker", "label", "pretitle", "small_heading"],
-    context,
-    itemText(activeSlide || {}, ["category", "label"]),
-  );
+  const slideEyebrow = itemText(activeSlide || {}, ["category", "eyebrow", "label", "subtitle"]);
+  const title = activeSlide
+    ? slideTitle || context.page.title
+    : fieldString(
+        block,
+        ["heading", "hero_heading", "headline", "hero_headline", "title", "hero_title", "main_heading", "h1"],
+        context,
+        context.page.title,
+      );
+  const description = activeSlide
+    ? slideDescription
+    : fieldString(
+        block,
+        [
+          "description",
+          "hero_description",
+          "subtitle",
+          "hero_subtitle",
+          "subheading",
+          "lede",
+          "body",
+          "copy",
+          "text",
+          "supporting_text",
+        ],
+        context,
+        context.page.meta?.description ||
+          context.settings.site.description ||
+          context.settings.business.short_description ||
+          "",
+      );
+  const eyebrow = activeSlide
+    ? slideEyebrow
+    : fieldString(
+        block,
+        ["eyebrow", "hero_eyebrow", "kicker", "label", "pretitle", "small_heading"],
+        context,
+      );
   const image =
     sectionImage(block, context) ||
     imageFrom(activeSlide?.cover_image || activeSlide?.featured_image || activeSlide?.image) ||
