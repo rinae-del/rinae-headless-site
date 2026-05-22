@@ -1350,12 +1350,11 @@ export async function getFaqs(): Promise<Faq[]> {
   }
 }
 
-export async function getReviews(): Promise<Review[]> {
+export async function getReviews(
+  params: Record<string, string | number | boolean | undefined> = { limit: 100 },
+): Promise<Review[]> {
   try {
-    const data = await cms<{ reviews: Review[] }>("/reviews", {
-      featured: true,
-      limit: 6,
-    });
+    const data = await cms<{ reviews: Review[] }>("/reviews", params);
     return data.reviews?.length ? data.reviews : fallbackReviews;
   } catch {
     return fallbackReviews;

@@ -309,33 +309,7 @@ function entryToItem(entry: FeedEntry, block?: CmsBlock, moduleSlug?: string): S
   };
 }
 
-function blockFeedIdentifier(block: CmsBlock, context: CmsRenderContext) {
-  const sectionSlug = slugify(block.section_slug || block.section_name || "");
-  const knownSectionModules: Record<string, string> = {
-    service: "services",
-    services: "services",
-    article: "blog",
-    articles: "blog",
-    blog: "blog",
-    blogs: "blog",
-    testimonial: "testimonials",
-    testimonials: "testimonials",
-    review: "testimonials",
-    reviews: "testimonials",
-    faq: "faq",
-    faqs: "faq",
-    question: "faq",
-    questions: "faq",
-    event: "events",
-    events: "events",
-    calendar: "events",
-    hero: "hero-slides",
-    heroslides: "hero-slides",
-    heroslider: "hero-slides",
-    slider: "hero-slides",
-    slides: "hero-slides",
-  };
-
+function explicitBlockFeedIdentifier(block: CmsBlock, context: CmsRenderContext) {
   return (
     stringFrom(block.dynamic_feed_id) ||
     stringFrom(block.feed_id) ||
@@ -356,7 +330,48 @@ function blockFeedIdentifier(block: CmsBlock, context: CmsRenderContext) {
       ],
       context,
     )
-    || knownSectionModules[sectionSlug]
+  );
+}
+
+function blockFeedIdentifier(block: CmsBlock, context: CmsRenderContext) {
+  const sectionSlug = slugify(block.section_slug || block.section_name || "");
+  const knownSectionModules: Record<string, string> = {
+    service: "services",
+    services: "services",
+    article: "blog",
+    articles: "blog",
+    blog: "blog",
+    blogs: "blog",
+    event: "events",
+    events: "events",
+    calendar: "events",
+    hero: "hero-slides",
+    heroslides: "hero-slides",
+    heroslider: "hero-slides",
+    slider: "hero-slides",
+    slides: "hero-slides",
+  };
+
+  return explicitBlockFeedIdentifier(block, context) || knownSectionModules[sectionSlug];
+}
+
+function sectionSource(block: CmsBlock, context: CmsRenderContext) {
+  return normalizeKey(
+    stringFrom(block.dynamic_source) ||
+      fieldString(block, ["dynamic_source", "source", "data_source", "content_source"], context),
+  );
+}
+
+function directSectionItems(block: CmsBlock, context: CmsRenderContext, keys: string[]) {
+  return limitSectionItems(block, context, parseArrayValue(fieldRaw(block, keys, context)));
+}
+
+function feedSectionItems(block: CmsBlock, context: CmsRenderContext, moduleSlug: string) {
+  const entries = context.feedEntries?.[moduleSlug] || [];
+  return limitSectionItems(
+    block,
+    context,
+    filterAndSortEntries(block, context, entries).map((entry) => entryToItem(entry, block, moduleSlug)),
   );
 }
 
@@ -365,16 +380,11 @@ function sectionItems(
   context: CmsRenderContext,
   keys = ["items", "cards", "features", "steps", "metrics", "stats", "entries"],
 ) {
-  const directItems = parseArrayValue(fieldRaw(block, keys, context));
-  if (directItems.length) return limitSectionItems(block, context, directItems);
+  const directItems = directSectionItems(block, context, keys);
+  if (directItems.length) return directItems;
 
   const moduleSlug = blockFeedIdentifier(block, context);
-  const entries = moduleSlug ? context.feedEntries?.[moduleSlug] || [] : [];
-  return limitSectionItems(
-    block,
-    context,
-    filterAndSortEntries(block, context, entries).map((entry) => entryToItem(entry, block, moduleSlug)),
-  );
+  return moduleSlug ? feedSectionItems(block, context, moduleSlug) : [];
 }
 
 function sectionNumber(block: CmsBlock, context: CmsRenderContext, keys: string[], fallback: number) {
@@ -601,6 +611,7 @@ function StarRating({ rating }: { rating: number }) {
 
 function sectionViewAll(block: CmsBlock, context: CmsRenderContext) {
   const moduleSlug = blockFeedIdentifier(block, context);
+  const source = sectionSource(block, context);
   const label = fieldString(
     block,
     ["view_all_label", "viewall_label", "view_all_text", "all_label", "archive_label"],
@@ -611,7 +622,10 @@ function sectionViewAll(block: CmsBlock, context: CmsRenderContext) {
       block,
       ["view_all_url", "viewall_url", "view_all_link", "all_url", "archive_url"],
       context,
-    ) || (moduleSlug ? moduleListPath(moduleSlug) : "");
+    ) ||
+    (source.includes("review") ? "/reviews" : "") ||
+    (source.includes("faq") || source.includes("question") ? "/faqs" : "") ||
+    (moduleSlug ? moduleListPath(moduleSlug) : "");
 
   if (!label && !url) return null;
   return {
@@ -931,8 +945,25 @@ function ReviewsSection({ block, context }: Props) {
   const title = fieldString(block, ["heading", "headline", "title"], context, block.section_name || "Reviews");
   const description = fieldString(block, ["description", "subtitle", "body", "text"], context);
   const eyebrow = fieldString(block, ["eyebrow", "kicker", "label"], context, "Reviews");
-  const fieldReviews = sectionItems(block, context, ["items", "reviews", "testimonials"]);
+  const directReviews = directSectionItems(block, context, ["items", "reviews", "testimonials"]);
+  const explicitFeed = explicitBlockFeedIdentifier(block, context);
+  const fieldReviews = directReviews.length
+    ? directReviews
+    : explicitFeed
+      ? feedSectionItems(block, context, explicitFeed)
+      : [];
   const viewAll = sectionViewAll(block, context);
+  const apiReviews = context.reviews.filter((review) => {
+    const featured = fieldString(block, ["featured", "featured_only"], context).toLowerCase();
+    const ratingFilter = Number(fieldString(block, ["rating", "min_rating"], context));
+    const locationId = fieldString(block, ["location_id", "location"], context);
+
+    if (featured === "true" && !review.featured) return false;
+    if (featured === "false" && review.featured) return false;
+    if (Number.isFinite(ratingFilter) && ratingFilter > 0 && review.rating < ratingFilter) return false;
+    if (locationId && review.location_id !== locationId) return false;
+    return true;
+  });
   const reviews = fieldReviews.length
     ? fieldReviews.map((item, index) => ({
         id: `${itemText(item, ["author_name", "title"], "review")}-${index}`,
@@ -942,7 +973,8 @@ function ReviewsSection({ block, context }: Props) {
         relative_time: itemText(item, ["relative_time", "date"]),
         url: itemText(item, ["url", "link", "href"]),
       }))
-    : context.reviews;
+    : apiReviews;
+  const limit = sectionNumber(block, context, ["limit", "count", "item_count", "items_count"], 6);
 
   if (!reviews.length) return null;
 
@@ -960,7 +992,7 @@ function ReviewsSection({ block, context }: Props) {
         ) : null}
       </div>
       <div className="review-grid">
-        {reviews.slice(0, 6).map((review) => (
+        {reviews.slice(0, limit).map((review) => (
           <article className="review-card" key={review.id}>
             <StarRating rating={review.rating} />
             <p>{review.text}</p>
@@ -993,8 +1025,22 @@ function FaqSection({ block, context }: Props) {
   const title = fieldString(block, ["heading", "headline", "title"], context, block.section_name || "FAQs");
   const description = fieldString(block, ["description", "subtitle", "body", "text"], context);
   const eyebrow = fieldString(block, ["eyebrow", "kicker", "label"], context, "Questions");
-  const fieldFaqs = sectionItems(block, context, ["items", "faqs", "questions"]);
+  const directFaqs = directSectionItems(block, context, ["items", "faqs", "questions"]);
+  const explicitFeed = explicitBlockFeedIdentifier(block, context);
+  const fieldFaqs = directFaqs.length
+    ? directFaqs
+    : explicitFeed
+      ? feedSectionItems(block, context, explicitFeed)
+      : [];
   const viewAll = sectionViewAll(block, context);
+  const apiFaqs = context.faqs.filter((faq) => {
+    const category = fieldString(block, ["category", "filter_category"], context).toLowerCase();
+    const tag = fieldString(block, ["tag", "filter_tag"], context).toLowerCase();
+
+    if (category && faq.category?.toLowerCase() !== category) return false;
+    if (tag && !(faq.tags || []).some((item) => item.toLowerCase() === tag)) return false;
+    return true;
+  });
   const faqs = fieldFaqs.length
     ? fieldFaqs.map((item, index) => ({
         id: `${itemText(item, ["question", "title"], "faq")}-${index}`,
@@ -1002,7 +1048,8 @@ function FaqSection({ block, context }: Props) {
         answer: itemText(item, ["answer", "text", "description", "body"]),
         url: itemText(item, ["url", "link", "href"]),
       }))
-    : context.faqs;
+    : apiFaqs;
+  const limit = sectionNumber(block, context, ["limit", "count", "item_count", "items_count"], 8);
 
   if (!faqs.length) return null;
 
@@ -1014,7 +1061,7 @@ function FaqSection({ block, context }: Props) {
         {description ? <p>{description}</p> : null}
       </div>
       <div className="faq-list">
-        {faqs.slice(0, 8).map((faq, index) => (
+        {faqs.slice(0, limit).map((faq, index) => (
           <details key={faq.id} open={index === 0}>
             <summary>{faq.question}</summary>
             <p dangerouslySetInnerHTML={{ __html: faq.answer }} />
@@ -1151,10 +1198,17 @@ function GenericSection({ block, context }: Props) {
 function SectionRenderer({ block, context }: Props) {
   const slug = slugify(block.section_slug || block.section_name || "");
   const normalizedSlug = normalizeKey(slug);
+  const source = sectionSource(block, context);
 
   if (normalizedSlug.includes("hero")) return <HeroSection block={block} context={context} />;
   if (normalizedSlug.includes("trust") || normalizedSlug.includes("proof") || normalizedSlug.includes("stat")) {
     return <ProofBand block={block} context={context} />;
+  }
+  if (source.includes("review")) {
+    return <ReviewsSection block={block} context={context} />;
+  }
+  if (source.includes("faq") || source.includes("question")) {
+    return <FaqSection block={block} context={context} />;
   }
   if (normalizedSlug.includes("service") || normalizedSlug.includes("solution")) {
     return <CardSection block={block} context={context} variant="services" />;

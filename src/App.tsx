@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, Menu, Phone, X } from "lucide-react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import { ArrowUpRight, ChevronDown, ChevronRight, Menu, Phone, X } from "lucide-react";
 import { ContentBlock, type CmsRenderContext } from "./components/ContentBlock";
 import {
   EventCalendarPage,
@@ -79,14 +79,6 @@ function blockFeedIdentifier(block: CmsBlock) {
     articles: "blog",
     blog: "blog",
     blogs: "blog",
-    testimonial: "testimonials",
-    testimonials: "testimonials",
-    review: "testimonials",
-    reviews: "testimonials",
-    faq: "faq",
-    faqs: "faq",
-    question: "faq",
-    questions: "faq",
     event: "events",
     events: "events",
     calendar: "events",
@@ -216,6 +208,7 @@ type ModuleRouteIntent = {
     title: string;
     description?: string;
   };
+  apiModule?: "faq" | "reviews";
   mode?: "list" | "calendar";
   detailSlug?: string;
 };
@@ -381,11 +374,26 @@ function knownRouteIntent(slug: string): ModuleRouteIntent | null {
     };
   }
 
-  if (first === "faq") {
+  if (first === "reviews") {
+    return {
+      moduleKind: "testimonials",
+      moduleCandidates: ["reviews", "review"],
+      copy: {
+        ...routeCopy.testimonials,
+        eyebrow: "Reviews",
+        title: "Reviews",
+      },
+      apiModule: "reviews",
+      detailSlug: second,
+    };
+  }
+
+  if (first === "faq" || first === "faqs") {
     return {
       moduleKind: "faq",
       moduleCandidates: ["faq", "faqs", "questions", "question"],
       copy: routeCopy.faq,
+      apiModule: "faq",
       detailSlug: second,
     };
   }
@@ -456,7 +464,7 @@ async function buildModuleRoute(
   faqs: Faq[],
   reviews: Review[],
 ): Promise<ResolvedRoute> {
-  const module = findModule(modules, intent.moduleCandidates);
+  const module = intent.apiModule ? undefined : findModule(modules, intent.moduleCandidates);
   const copy = module ? defaultCopyForModule(module, intent.moduleKind) : intent.copy;
   const moduleSlug = module?.slug || intent.moduleCandidates[0];
   const queryKey = module ? moduleQueryKey(module) : moduleSlug;
@@ -668,24 +676,91 @@ function syncDocumentHead(page: CmsPage, settings: SiteSettings) {
   }
 }
 
-function NavLink({ item, onClick }: { item: NavItem; onClick?: () => void }) {
-  const hasChildren = Boolean(item.children?.length);
+function NavLink({
+  item,
+  depth = 0,
+  hasChildren = false,
+  onClick,
+}: {
+  item: NavItem;
+  depth?: number;
+  hasChildren?: boolean;
+  onClick?: () => void;
+}) {
   const url = item.url || "#";
+  const Caret = depth === 0 ? ChevronDown : ChevronRight;
+  const content = (
+    <>
+      <span>{item.label}</span>
+      {hasChildren ? <Caret aria-hidden="true" className="nav-caret" size={15} /> : null}
+    </>
+  );
 
   if (item.type === "label" || (hasChildren && !item.url)) {
-    return <span className="nav-link dropdown-trigger">{item.label}</span>;
+    return (
+      <span className={hasChildren ? "nav-link dropdown-trigger has-children" : "nav-link dropdown-trigger"}>
+        {content}
+      </span>
+    );
   }
 
   return (
     <a
-      className="nav-link"
+      className={hasChildren ? "nav-link has-children" : "nav-link"}
       href={url}
+      aria-haspopup={hasChildren ? "true" : undefined}
       target={item.open_in_new_tab ? "_blank" : undefined}
       rel={item.open_in_new_tab || isExternalUrl(url) ? "noreferrer" : undefined}
       onClick={onClick}
     >
-      {item.label}
+      {content}
     </a>
+  );
+}
+
+function DesktopNavItem({ item, depth = 0 }: { item: NavItem; depth?: number }) {
+  const children = sortedNav(item.children || []);
+  const hasChildren = children.length > 0;
+  const className = depth === 0 ? "nav-item" : "nav-subitem";
+
+  return (
+    <div className={`${className} nav-depth-${Math.min(depth, 3)}`} key={item.id}>
+      <NavLink item={item} depth={depth} hasChildren={hasChildren} />
+      {hasChildren ? (
+        <div className={depth === 0 ? "dropdown-menu nav-submenu" : "nav-submenu"}>
+          {children.map((child) => (
+            <DesktopNavItem item={child} depth={depth + 1} key={child.id} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function MobileNavItem({
+  item,
+  depth = 0,
+  onNavigate,
+}: {
+  item: NavItem;
+  depth?: number;
+  onNavigate: () => void;
+}) {
+  const children = sortedNav(item.children || []);
+  const hasChildren = children.length > 0;
+  const style = { "--nav-depth": depth } as CSSProperties;
+
+  return (
+    <div className="mobile-nav-item" key={item.id} style={style}>
+      <NavLink item={item} depth={depth} hasChildren={hasChildren} onClick={onNavigate} />
+      {hasChildren ? (
+        <div className="mobile-child-links">
+          {children.map((child) => (
+            <MobileNavItem item={child} depth={depth + 1} key={child.id} onNavigate={onNavigate} />
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -929,16 +1004,7 @@ export default function App() {
 
           <nav className="nav-menu" aria-label="Primary navigation">
             {primaryNavItems.map((item) => (
-              <div className="nav-item" key={item.id}>
-                <NavLink item={item} />
-                {item.children?.length ? (
-                  <div className="dropdown-menu">
-                    {sortedNav(item.children).map((child) => (
-                      <NavLink item={child} key={child.id} />
-                    ))}
-                  </div>
-                ) : null}
-              </div>
+              <DesktopNavItem item={item} key={item.id} />
             ))}
           </nav>
 
@@ -963,16 +1029,7 @@ export default function App() {
 
         <div className={navOpen ? "mobile-nav open" : "mobile-nav"}>
           {primaryNavItems.map((item) => (
-            <div className="mobile-nav-item" key={item.id}>
-              <NavLink item={item} onClick={() => setNavOpen(false)} />
-              {item.children?.length ? (
-                <div className="mobile-child-links">
-                  {sortedNav(item.children).map((child) => (
-                    <NavLink item={child} key={child.id} onClick={() => setNavOpen(false)} />
-                  ))}
-                </div>
-              ) : null}
-            </div>
+            <MobileNavItem item={item} key={item.id} onNavigate={() => setNavOpen(false)} />
           ))}
           {headerCta ? <NavCta item={headerCta} onClick={() => setNavOpen(false)} /> : null}
         </div>

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+.next/
+out/
 .env
 .env.local
 .DS_Store
@@ -8,3 +10,6 @@ npm-debug.log*
 screenshot-*.png
 vite.log
 vite.err.log
+dev-server*.log
+*.log
+coverage/
