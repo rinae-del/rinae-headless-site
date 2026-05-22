@@ -19,9 +19,12 @@ type Props = {
   formId?: string;
   email?: string;
   submitButtonPreset?: string;
+  extraData?: Record<string, string>;
+  compact?: boolean;
 };
 
 function fieldInputType(type: string) {
+  if (type === "phone") return "tel";
   if (["email", "tel", "number", "date", "url"].includes(type)) return type;
   return "text";
 }
@@ -32,7 +35,7 @@ function normalizeButtonPreset(value?: string) {
     : "primary";
 }
 
-export function ContactForm({ form, formId, email, submitButtonPreset }: Props) {
+export function ContactForm({ form, formId, email, submitButtonPreset, extraData, compact }: Props) {
   const fields = form?.fields?.length ? form.fields : fallbackFields;
   const effectiveFormId = form?.id || formId || contactFormId;
   const buttonPreset = normalizeButtonPreset(submitButtonPreset);
@@ -45,7 +48,7 @@ export function ContactForm({ form, formId, email, submitButtonPreset }: Props) 
 
     try {
       if (effectiveFormId) {
-        await submitForm(effectiveFormId, values);
+        await submitForm(effectiveFormId, { ...(extraData || {}), ...values });
       }
       setStatus("sent");
       setValues({});
@@ -55,11 +58,13 @@ export function ContactForm({ form, formId, email, submitButtonPreset }: Props) 
   }
 
   return (
-    <form className="contact-form" onSubmit={handleSubmit}>
+    <form className={compact ? "contact-form contact-form-compact" : "contact-form"} onSubmit={handleSubmit}>
       <div className="form-grid">
         {fields.map((field) => {
           const value = values[field.key] || "";
-          const fieldClass = field.type === "textarea" ? "field field-wide" : "field";
+          const fieldClass =
+            field.type === "textarea" || field.width === "full" ? "field field-wide" : "field";
+          const options = field.includeOther ? [...(field.options || []), "Other"] : field.options || [];
 
           return (
             <label className={fieldClass} key={field.key}>
@@ -82,7 +87,7 @@ export function ContactForm({ form, formId, email, submitButtonPreset }: Props) 
                   }
                 >
                   <option value="">{field.placeholder || "Select an option"}</option>
-                  {(field.options || []).map((option) => {
+                  {options.map((option) => {
                     const optionValue = typeof option === "string" ? option : option.value;
                     const optionLabel = typeof option === "string" ? option : option.label;
                     return (
@@ -92,15 +97,77 @@ export function ContactForm({ form, formId, email, submitButtonPreset }: Props) 
                     );
                   })}
                 </select>
+              ) : field.type === "radio" ? (
+                <div className="choice-group">
+                  {options.map((option) => {
+                    const optionValue = typeof option === "string" ? option : option.value;
+                    const optionLabel = typeof option === "string" ? option : option.label;
+                    return (
+                      <label className="choice-field" key={optionValue}>
+                        <input
+                          checked={value === optionValue}
+                          name={field.key}
+                          required={field.required}
+                          type="radio"
+                          value={optionValue}
+                          onChange={(event) =>
+                            setValues((current) => ({ ...current, [field.key]: event.target.value }))
+                          }
+                        />
+                        <span>{optionLabel}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : field.type === "checkbox" && options.length ? (
+                <div className="choice-group">
+                  {options.map((option) => {
+                    const optionValue = typeof option === "string" ? option : option.value;
+                    const optionLabel = typeof option === "string" ? option : option.label;
+                    const selected = value ? value.split(",").filter(Boolean) : [];
+                    return (
+                      <label className="choice-field" key={optionValue}>
+                        <input
+                          checked={selected.includes(optionValue)}
+                          type="checkbox"
+                          value={optionValue}
+                          onChange={(event) =>
+                            setValues((current) => {
+                              const next = event.target.checked
+                                ? [...selected, optionValue]
+                                : selected.filter((item) => item !== optionValue);
+                              return { ...current, [field.key]: next.join(",") };
+                            })
+                          }
+                        />
+                        <span>{optionLabel}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               ) : field.type === "checkbox" ? (
+                <label className="choice-field solo">
+                  <input
+                    checked={value === "true"}
+                    required={field.required}
+                    type="checkbox"
+                    onChange={(event) =>
+                      setValues((current) => ({
+                        ...current,
+                        [field.key]: event.target.checked ? "true" : "",
+                      }))
+                    }
+                  />
+                  <span>{field.placeholder || field.label}</span>
+                </label>
+              ) : field.type === "file" ? (
                 <input
-                  checked={value === "true"}
+                  type="file"
                   required={field.required}
-                  type="checkbox"
                   onChange={(event) =>
                     setValues((current) => ({
                       ...current,
-                      [field.key]: event.target.checked ? "true" : "",
+                      [field.key]: event.target.files?.[0]?.name || "",
                     }))
                   }
                 />

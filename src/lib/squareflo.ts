@@ -178,6 +178,8 @@ export type CmsFormField = {
   required?: boolean;
   placeholder?: string;
   options?: Array<string | { label: string; value: string }>;
+  width?: "full" | "half" | string;
+  includeOther?: boolean;
 };
 
 export type CmsForm = {

@@ -2206,6 +2206,52 @@ img {
   backdrop-filter: blur(18px);
 }
 
+.contact-form-compact {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.contact-form-compact .form-grid {
+  grid-template-columns: 1fr;
+}
+
+.contact-form-compact .field {
+  grid-column: 1 / -1;
+}
+
+.contact-form-compact .form-actions {
+  align-items: stretch;
+  display: grid;
+  gap: 10px;
+}
+
+.contact-form-compact .btn,
+.contact-form-compact .text-link {
+  width: 100%;
+}
+
+.choice-group {
+  display: grid;
+  gap: 8px;
+}
+
+.choice-field {
+  align-items: center;
+  color: var(--field-text);
+  display: flex;
+  font-size: var(--field-font-size);
+  gap: 9px;
+  line-height: 1.35;
+}
+
+.choice-field input {
+  height: auto;
+  min-height: 0;
+  width: auto;
+}
+
 .field input,
 .field textarea,
 .field select {
@@ -3095,6 +3141,10 @@ img {
   box-shadow: 0 12px 24px -6px color-mix(in srgb, var(--color-accent) 45%, transparent) !important;
 }
 
+.sidebar-form-card .contact-form {
+  margin-top: 22px;
+}
+
 /* Features List Card */
 .sidebar-features-card {
   background: color-mix(in srgb, var(--color-page-bg) 40%, var(--color-panel)) !important;
@@ -3283,6 +3333,7 @@ img {
 .service-list-row {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   background: var(--color-panel) !important;
   border: 1px solid color-mix(in srgb, var(--color-line) 80%, transparent) !important;
   border-radius: 14px !important;
@@ -3309,6 +3360,8 @@ img {
 }
 
 .service-list-row-image img {
+  inset: 0;
+  position: absolute;
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
@@ -3397,11 +3450,12 @@ img {
 @media (min-width: 768px) {
   .service-list-row {
     flex-direction: row;
+    align-items: stretch;
   }
   
   .service-list-row-image {
+    align-self: stretch;
     width: 240px;
-    height: 100%;
     min-height: 180px;
     aspect-ratio: auto;
     flex: 0 0 240px;

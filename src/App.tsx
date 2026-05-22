@@ -270,6 +270,24 @@ function extractFormId(page: CmsPage) {
   return found;
 }
 
+function entryFormId(entry?: FeedEntry) {
+  const data = (entry?.data || {}) as Record<string, unknown>;
+  return (
+    stringFrom(data.form_id) ||
+    stringFrom(data.formId) ||
+    stringFrom(data.contact_form_id) ||
+    stringFrom(data.contactFormId) ||
+    stringFrom(data.inquiry_form_id) ||
+    stringFrom(data.inquiryFormId) ||
+    stringFrom(data.quote_form_id) ||
+    stringFrom(data.quoteFormId)
+  );
+}
+
+function routeFormId(route: ResolvedRoute) {
+  return route.type === "module-detail" ? entryFormId(route.entry) : "";
+}
+
 function extractFeedModules(page: CmsPage) {
   const modules = new Set<string>();
   const { left, right } = pageBlocks(page);
@@ -994,7 +1012,7 @@ export default function App() {
         );
         const nextPage = nextRoute.page;
 
-        const inferredFormId = contactFormId || extractFormId(nextPage);
+        const inferredFormId = routeFormId(nextRoute) || extractFormId(nextPage) || contactFormId;
         const feedModules = new Set(extractFeedModules(nextPage));
         if (normalizePath(pathname) === "" && !feedModules.has("hero-slides")) {
           feedModules.add("hero-slides");
@@ -1203,6 +1221,8 @@ export default function App() {
             related={route.related}
             copy={route.copy}
             settings={settings}
+            form={form}
+            formId={activeFormId}
           />
         ) : (
           <EventCalendarPage

@@ -21,12 +21,14 @@ import {
   moduleListPath,
   slugifyContent,
   stripHtml,
+  type CmsForm,
   type CmsModule,
   type Faq,
   type FeedEntry,
   type Review,
   type SiteSettings,
 } from "../lib/squareflo";
+import { ContactForm } from "./ContactForm";
 
 export type ModuleKind = "services" | "blog" | "testimonials" | "faq" | "events" | "generic";
 
@@ -60,6 +62,8 @@ type ModuleDetailProps = {
   related: FeedEntry[];
   copy: ModulePageCopy;
   settings?: SiteSettings;
+  form?: CmsForm | null;
+  formId?: string;
 };
 
 type EventPageProps = {
@@ -400,7 +404,7 @@ export function ModuleListPage({
   );
 }
 
-export function ModuleDetailPage({ module, kind, entry, related, copy, settings }: ModuleDetailProps) {
+export function ModuleDetailPage({ module, kind, entry, related, copy, settings, form, formId }: ModuleDetailProps) {
   const slug = moduleSlug(module, kind);
   const title = kind === "faq" ? entry.data?.question?.toString() || feedEntryTitle(entry) : feedEntryTitle(entry);
   const image = feedEntryImage(entry);
@@ -437,36 +441,21 @@ export function ModuleDetailPage({ module, kind, entry, related, copy, settings 
 
           {kind === "services" && business ? (
             <aside className="module-detail-sidebar">
-              <div className="sidebar-cta-card">
+              <div className="sidebar-cta-card sidebar-form-card">
                 <h3>Interested in this Service?</h3>
-                <p>Get in touch with our team of experts to discuss how we can help you achieve your goals.</p>
-                
-                <div className="sidebar-contact-info">
-                  {business.phone ? (
-                    <a href={`tel:${business.phone}`} className="sidebar-contact-item">
-                      <span className="contact-icon-wrapper">📞</span>
-                      <div>
-                        <span className="contact-label">Call Us</span>
-                        <strong className="contact-value">{business.phone}</strong>
-                      </div>
-                    </a>
-                  ) : null}
-                  
-                  {business.email ? (
-                    <a href={`mailto:${business.email}`} className="sidebar-contact-item">
-                      <span className="contact-icon-wrapper">✉️</span>
-                      <div>
-                        <span className="contact-label">Email Us</span>
-                        <strong className="contact-value">{business.email}</strong>
-                      </div>
-                    </a>
-                  ) : null}
-                </div>
-                
-                <a href="/contact" className="btn btn-primary sidebar-action-btn">
-                  <span>Get a Free Quote</span>
-                  <ArrowUpRight size={16} />
-                </a>
+                <p>Send a quick note and we will follow up with details for {title}.</p>
+                <ContactForm
+                  compact
+                  email={business.email}
+                  form={form || null}
+                  formId={formId}
+                  submitButtonPreset={settings?.design?.forms?.submitButtonPreset?.toString()}
+                  extraData={{
+                    service_title: title,
+                    service_slug: entry.slug,
+                    service_url: typeof window !== "undefined" ? window.location.href : moduleEntryPath(slug, entry.slug),
+                  }}
+                />
               </div>
 
               {related.filter((candidate) => candidate.id !== entry.id).length ? (
