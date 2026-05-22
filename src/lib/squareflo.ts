@@ -1212,7 +1212,8 @@ export async function getNavigation(
 ): Promise<NavItem[]> {
   try {
     const data = await cms<{ navigation: NavItem[] }>("/navigation", { location });
-    return data.navigation?.length ? data.navigation : fallbackNavigation;
+    if (data.navigation?.length) return data.navigation;
+    return location === "footer" ? [] : fallbackNavigation;
   } catch {
     return location === "footer" ? [] : fallbackNavigation;
   }
