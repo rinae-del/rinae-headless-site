@@ -1,4 +1,4 @@
-const DEFAULT_API_URL = "https://squareflo.com/api/v1";
+const DEFAULT_API_URL = "https://hizl.net/api/v1";
 
 function normalizePath(value) {
   const raw = Array.isArray(value) ? value.join("/") : value || "";

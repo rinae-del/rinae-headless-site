@@ -241,7 +241,7 @@ export type FeedEntriesPage = {
   module: string;
 };
 
-const DEFAULT_API_URL = "https://squareflo.com/api/v1";
+const DEFAULT_API_URL = "https://hizl.net/api/v1";
 
 export const squarefloApiUrl = (
   import.meta.env.VITE_SQUAREFLO_API_URL || DEFAULT_API_URL
@@ -1202,23 +1202,14 @@ export function moduleQueryKey(module: CmsModule) {
 }
 
 export async function getSettings(): Promise<SiteSettings> {
-  try {
-    return await cms<SiteSettings>("/settings");
-  } catch {
-    return fallbackSettings;
-  }
+  return cms<SiteSettings>("/settings");
 }
 
 export async function getNavigation(
   location: "header" | "footer" | "all" = "header",
 ): Promise<NavItem[]> {
-  try {
-    const data = await cms<{ navigation: NavItem[] }>("/navigation", { location });
-    if (data.navigation?.length) return data.navigation;
-    return location === "footer" ? [] : fallbackNavigation;
-  } catch {
-    return location === "footer" ? [] : fallbackNavigation;
-  }
+  const data = await cms<{ navigation: NavItem[] }>("/navigation", { location });
+  return data.navigation || [];
 }
 
 export async function getHomePage(): Promise<CmsPage> {
@@ -1245,12 +1236,8 @@ export async function getHomePage(): Promise<CmsPage> {
 }
 
 export async function getPages(): Promise<CmsPage[]> {
-  try {
-    const data = await cms<{ pages: CmsPage[] }>("/pages");
-    return data.pages || [];
-  } catch {
-    return [];
-  }
+  const data = await cms<{ pages: CmsPage[] }>("/pages");
+  return data.pages || [];
 }
 
 function normalizePageSlug(pathname: string) {
@@ -1345,11 +1332,9 @@ export async function getPageForPath(pathname: string): Promise<CmsPage> {
 export async function getFaqs(): Promise<Faq[]> {
   try {
     const data = await cms<{ faqs: Faq[] }>("/faqs");
-    return data.faqs?.length
-      ? data.faqs.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-      : fallbackFaqs;
+    return (data.faqs || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   } catch {
-    return fallbackFaqs;
+    return [];
   }
 }
 
@@ -1358,19 +1343,15 @@ export async function getReviews(
 ): Promise<Review[]> {
   try {
     const data = await cms<{ reviews: Review[] }>("/reviews", params);
-    return data.reviews?.length ? data.reviews : fallbackReviews;
+    return data.reviews || [];
   } catch {
-    return fallbackReviews;
+    return [];
   }
 }
 
 export async function getModules(): Promise<CmsModule[]> {
-  try {
-    const data = await cms<{ modules: CmsModule[] }>("/modules");
-    return data.modules || [];
-  } catch {
-    return fallbackModules;
-  }
+  const data = await cms<{ modules: CmsModule[] }>("/modules");
+  return data.modules || [];
 }
 
 function applyFallbackFeedParams(
@@ -1481,13 +1462,12 @@ export async function getFeedEntriesPage(
       module: data.module || module,
     };
   } catch {
-    const fallbackEntries = applyFallbackFeedParams(fallbackFeedEntriesForModule(module), params);
     return {
-      entries: fallbackEntries.slice(offset, offset + limit),
-      total: fallbackEntries.length,
+      entries: [],
+      total: 0,
       limit,
       offset,
-      module: fallbackModuleForSlug(module)?.slug || module,
+      module,
     };
   }
 }
@@ -1507,7 +1487,7 @@ export async function getFeedEntry(module: string, slug: string): Promise<FeedEn
     const data = await cms<{ entry: FeedEntry }>(`/feed-entries/${slug}`, { module });
     return data.entry || null;
   } catch {
-    return fallbackFeedEntriesForModule(module).find((entry) => entry.slug === slug) || null;
+    return null;
   }
 }
 

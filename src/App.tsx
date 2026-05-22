@@ -11,10 +11,7 @@ import {
   applyDesignTokens,
   contactFormId,
   fallbackModuleForSlug,
-  fallbackFaqs,
   fallbackHomePage,
-  fallbackNavigation,
-  fallbackReviews,
   fallbackSettings,
   feedEntryDescription,
   feedEntryImage,
@@ -1013,14 +1010,15 @@ function PageContent({
 export default function App() {
   const [settings, setSettings] = useState<SiteSettings>(fallbackSettings);
   const [route, setRoute] = useState<ResolvedRoute>({ type: "page", page: fallbackHomePage });
-  const [navigation, setNavigation] = useState<NavItem[]>(fallbackNavigation);
+  const [navigation, setNavigation] = useState<NavItem[]>([]);
   const [footerNavigation, setFooterNavigation] = useState<NavItem[]>([]);
-  const [faqs, setFaqs] = useState<Faq[]>(fallbackFaqs);
-  const [reviews, setReviews] = useState<Review[]>(fallbackReviews);
+  const [faqs, setFaqs] = useState<Faq[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [form, setForm] = useState<CmsForm | null>(null);
   const [activeFormId, setActiveFormId] = useState(contactFormId);
   const [feedEntries, setFeedEntries] = useState<Record<string, FeedEntry[]>>({});
   const [cmsReady, setCmsReady] = useState(false);
+  const [cmsError, setCmsError] = useState("");
   const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
@@ -1047,6 +1045,9 @@ export default function App() {
           nextReviews,
           new URLSearchParams(window.location.search),
         );
+        if (!pages.length) {
+          throw new Error("The CMS API returned no pages. Publish a home page in Squareflo before loading the site.");
+        }
         const nextPage = nextRoute.page;
 
         const inferredFormId = routeFormId(nextRoute) || extractFormId(nextPage) || contactFormId;
@@ -1088,6 +1089,11 @@ export default function App() {
             return current;
           }, {}),
         );
+        setCmsError("");
+      } catch (error) {
+        if (!active) return;
+        const message = error instanceof Error ? error.message : "Could not load CMS content.";
+        setCmsError(message);
       } finally {
         if (active) setCmsReady(true);
       }
@@ -1181,6 +1187,23 @@ export default function App() {
 
   if (!cmsReady) {
     return <div className="site-loading" aria-label="Loading site content" />;
+  }
+
+  if (cmsError) {
+    return (
+      <main className="cms-error-screen">
+        <section>
+          <p className="eyebrow dark">CMS connection</p>
+          <h1>Squareflo content is not loading</h1>
+          <p>{cmsError}</p>
+          <p>
+            Add `VITE_SQUAREFLO_API_URL=https://hizl.net/api/v1` and a valid
+            `VITE_SQUAREFLO_API_KEY` or `VITE_SQUAREFLO_DRAFT_KEY` to `.env.local`,
+            then restart the dev server.
+          </p>
+        </section>
+      </main>
+    );
   }
 
   return (

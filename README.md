@@ -19,7 +19,7 @@ cp .env.example .env.local
 For production on Vercel, Squareflo automatically provisions the server-side variables used by `api/squareflo.js`:
 
 ```bash
-SQUAREFLO_API_URL=https://squareflo.com/api/v1
+SQUAREFLO_API_URL=https://hizl.net/api/v1
 SQUAREFLO_API_KEY=sqf_live_your_key_here
 SQUAREFLO_DRAFT_KEY=sqf_draft_your_key_here
 ```
@@ -27,7 +27,7 @@ SQUAREFLO_DRAFT_KEY=sqf_draft_your_key_here
 For local direct API testing, you can set:
 
 ```bash
-VITE_SQUAREFLO_API_URL=https://squareflo.com/api/v1
+VITE_SQUAREFLO_API_URL=https://hizl.net/api/v1
 VITE_SQUAREFLO_API_KEY=sqf_live_your_key_here
 VITE_SQUAREFLO_CONTACT_FORM_ID=optional_squareflo_form_id
 ```
@@ -38,7 +38,7 @@ VITE_SQUAREFLO_CONTACT_FORM_ID=optional_squareflo_form_id
 npm run dev
 ```
 
-The app falls back to CMS-shaped agency content when no CMS key is configured, then uses Squareflo pages, section blocks, navigation, settings/design tokens, FAQs, reviews, feed entries, and forms when credentials are present.
+The app shows a CMS connection error when the Squareflo API is not configured or returns no pages. It does not render demo/fallback content in place of CMS content.
 
 ## Deploying with Squareflo
 
@@ -50,7 +50,7 @@ This project is set up for Squareflo's Vercel-connected deployment flow:
 4. Squareflo will automatically provision these server-side Vercel environment variables:
 
 ```bash
-SQUAREFLO_API_URL=https://squareflo.com/api/v1
+SQUAREFLO_API_URL=https://hizl.net/api/v1
 SQUAREFLO_API_KEY=sqf_live_your_key_here
 SQUAREFLO_DRAFT_KEY=sqf_draft_your_key_here
 ```
