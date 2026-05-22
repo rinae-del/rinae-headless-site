@@ -1539,13 +1539,24 @@ img {
   padding: 30px max(24px, calc((100% - 1180px) / 2));
 }
 
-.site-footer div {
+.footer-brand {
   display: grid;
   gap: 3px;
 }
 
 .site-footer strong {
   color: var(--type-h3-color-dark);
+}
+
+.footer-logo {
+  max-height: 42px;
+  max-width: 190px;
+  object-fit: contain;
+}
+
+.footer-logo.square {
+  height: 42px;
+  width: 42px;
 }
 
 .footer-nav {

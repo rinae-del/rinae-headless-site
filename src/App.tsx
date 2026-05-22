@@ -985,6 +985,10 @@ export default function App() {
 
   const business = settings.business;
   const companyName = business.name || settings.site.name || "Rinae Web Studio";
+  const footerDescription =
+    business.short_description && business.short_description.trim().toLowerCase() !== companyName.trim().toLowerCase()
+      ? business.short_description
+      : "";
   const navItems = useMemo(() => sortedNav(navigation), [navigation]);
   const headerCta = useMemo(() => {
     const lastItem = navItems[navItems.length - 1];
@@ -1105,9 +1109,15 @@ export default function App() {
       </main>
 
       <footer className="site-footer">
-        <div>
-          <strong>{companyName}</strong>
-          <span>{settings.site.description || business.short_description}</span>
+        <div className="footer-brand">
+          {business.logos?.rectangular ? (
+            <img src={business.logos.rectangular} alt={companyName} className="footer-logo" />
+          ) : business.logos?.square ? (
+            <img src={business.logos.square} alt={companyName} className="footer-logo square" />
+          ) : (
+            <strong>{companyName}</strong>
+          )}
+          {footerDescription ? <span>{footerDescription}</span> : null}
         </div>
         {footerItems.length ? (
           <nav className="footer-nav" aria-label="Footer navigation">
