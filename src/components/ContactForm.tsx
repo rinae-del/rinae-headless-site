@@ -17,7 +17,6 @@ const fallbackFields: CmsFormField[] = [
 type Props = {
   form: CmsForm | null;
   formId?: string;
-  email?: string;
   submitButtonPreset?: string;
   extraData?: Record<string, string>;
   compact?: boolean;
@@ -35,7 +34,7 @@ function normalizeButtonPreset(value?: string) {
     : "primary";
 }
 
-export function ContactForm({ form, formId, email, submitButtonPreset, extraData, compact }: Props) {
+export function ContactForm({ form, formId, submitButtonPreset, extraData, compact }: Props) {
   const fields = form?.fields?.length ? form.fields : fallbackFields;
   const effectiveFormId = form?.id || formId || contactFormId;
   const buttonPreset = normalizeButtonPreset(submitButtonPreset);
@@ -192,11 +191,6 @@ export function ContactForm({ form, formId, email, submitButtonPreset, extraData
           <span>{status === "sending" ? "Sending" : form?.submit_label || "Send brief"}</span>
           <Send aria-hidden="true" size={18} />
         </button>
-        {email ? (
-          <a className="text-link" href={`mailto:${email}`}>
-            {email}
-          </a>
-        ) : null}
       </div>
 
       {status === "sent" ? (
@@ -206,9 +200,7 @@ export function ContactForm({ form, formId, email, submitButtonPreset, extraData
       ) : null}
       {status === "error" ? (
         <p className="form-note error">
-          {email
-            ? "The message could not send. Please use the email link."
-            : "The message could not send. Please try again later."}
+          The message could not send. Please try again later.
         </p>
       ) : null}
     </form>

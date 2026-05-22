@@ -337,6 +337,10 @@ function isExternalUrl(url?: string) {
   return Boolean(url && /^(https?:|mailto:|tel:)/.test(url));
 }
 
+function isPublicEmailUrl(url?: string) {
+  return Boolean(url && /^mailto:/i.test(url));
+}
+
 function sortedNav(items: NavItem[]) {
   return items.slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 }
@@ -877,7 +881,7 @@ function NavLink({
     </>
   );
 
-  if (item.type === "label" || (hasChildren && !item.url)) {
+  if (item.type === "label" || isPublicEmailUrl(url) || (hasChildren && !item.url)) {
     return (
       <span className={hasChildren ? "nav-link dropdown-trigger has-children" : "nav-link dropdown-trigger"}>
         {content}
@@ -946,11 +950,12 @@ function MobileNavItem({
 }
 
 function canRenderNavCta(item?: NavItem) {
-  return Boolean(item?.url && item.type !== "label" && !item.children?.length);
+  return Boolean(item?.url && !isPublicEmailUrl(item.url) && item.type !== "label" && !item.children?.length);
 }
 
 function NavCta({ item, onClick }: { item: NavItem; onClick?: () => void }) {
   const url = item.url || "#";
+  if (isPublicEmailUrl(url)) return null;
 
   return (
     <a
@@ -1284,7 +1289,7 @@ export default function App() {
         </div>
         {footerItems.length ? (
           <nav className="footer-nav" aria-label="Footer navigation">
-            {footerItems.slice(0, 6).map((item) => (
+            {footerItems.filter((item) => !isPublicEmailUrl(item.url)).slice(0, 6).map((item) => (
               <a
                 key={item.id}
                 href={item.url || "#"}

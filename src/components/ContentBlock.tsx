@@ -6,7 +6,6 @@ import {
   Code2,
   Gauge,
   Layers3,
-  Mail,
   Phone,
   ShieldCheck,
   Star,
@@ -124,7 +123,6 @@ function resolveSourceValue(field: CmsField, context: CmsRenderContext) {
     return business.short_description || settings.site.description;
   }
   if (source === "phone" || source === "businessphone") return business.phone;
-  if (source === "email" || source === "businessemail") return business.email;
   if (source === "reviews") return reviews;
   if (source === "faqs") return faqs;
 
@@ -1096,7 +1094,6 @@ function ContactSection({ block, context }: Props) {
     business.short_description || context.settings.site.description || "",
   );
   const eyebrow = fieldString(block, ["eyebrow", "kicker", "label"], context, "Contact");
-  const email = fieldString(block, ["email", "contact_email"], context, business.email || "");
   const phone = fieldString(block, ["phone", "contact_phone"], context, business.phone || "");
   const formId = fieldString(block, ["form_id", "formId", "contact_form_id"], context, context.formId || "");
   const submitButtonPreset = String(context.settings.design?.forms?.submitButtonPreset || "primary");
@@ -1115,12 +1112,6 @@ function ContactSection({ block, context }: Props) {
           {title ? <h2>{title}</h2> : null}
           {description ? <p>{description}</p> : null}
           <div className="contact-links">
-            {email ? (
-              <a href={`mailto:${email}`}>
-                <Mail aria-hidden="true" size={18} />
-                {email}
-              </a>
-            ) : null}
             {phone ? (
               <a href={`tel:${phone}`}>
                 <Phone aria-hidden="true" size={18} />
@@ -1132,7 +1123,6 @@ function ContactSection({ block, context }: Props) {
         <ContactForm
           form={context.form}
           formId={formId}
-          email={email}
           submitButtonPreset={submitButtonPreset}
         />
       </div>

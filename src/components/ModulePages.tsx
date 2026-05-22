@@ -409,7 +409,6 @@ export function ModuleListPage({
                   
                   <ContactForm
                     compact
-                    email={business.email}
                     form={form || null}
                     formId={formId}
                     submitButtonPreset={settings?.design?.forms?.submitButtonPreset?.toString()}
@@ -480,7 +479,6 @@ export function ModuleDetailPage({ module, kind, entry, related, copy, settings,
                 <p>Send a quick note and we will follow up with details for {title}.</p>
                 <ContactForm
                   compact
-                  email={business.email}
                   form={form || null}
                   formId={formId}
                   submitButtonPreset={settings?.design?.forms?.submitButtonPreset?.toString()}
