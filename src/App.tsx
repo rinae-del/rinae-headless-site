@@ -59,7 +59,98 @@ function stringFrom(value: unknown): string {
   if (!value || typeof value !== "object") return "";
 
   const record = value as Record<string, unknown>;
-  return stringFrom(record.value || record.text || record.label || record.title || record.url || record.src);
+  return stringFrom(
+    record.value ||
+      record.text ||
+      record.label ||
+      record.title ||
+      record.url ||
+      record.src ||
+      record.secure_url ||
+      record.public_url,
+  );
+}
+
+function firstStringValue(record: Record<string, unknown> | undefined, keys: string[]) {
+  if (!record) return "";
+
+  for (const key of keys) {
+    const value = stringFrom(record[key]);
+    if (value) return value;
+  }
+
+  const normalizedKeys = keys.map(normalizeKey);
+  for (const [key, value] of Object.entries(record)) {
+    if (normalizedKeys.includes(normalizeKey(key))) {
+      const text = stringFrom(value);
+      if (text) return text;
+    }
+  }
+
+  return "";
+}
+
+function businessLogo(business: SiteSettings["business"], kind: "favicon"): string;
+function businessLogo(business: SiteSettings["business"], kind?: "brand"): { src: string; isSquare: boolean };
+function businessLogo(business: SiteSettings["business"], kind: "brand" | "favicon" = "brand") {
+  const businessRecord = business as Record<string, unknown>;
+  const logos = business.logos as Record<string, unknown> | undefined;
+  const rectangular = firstStringValue(logos, [
+    "rectangular",
+    "rectangle",
+    "horizontal",
+    "primary",
+    "brand",
+    "logo",
+    "logo_url",
+    "logoUrl",
+    "rectangular_logo",
+    "rectangularLogo",
+    "horizontal_logo",
+    "horizontalLogo",
+    "brand_logo",
+    "brandLogo",
+  ]);
+  const square = firstStringValue(logos, [
+    "square",
+    "icon",
+    "mark",
+    "logo_square",
+    "logoSquare",
+    "square_logo",
+    "squareLogo",
+    "site_icon",
+    "siteIcon",
+  ]);
+  const favicon = firstStringValue(logos, [
+    "favicon",
+    "favicon_url",
+    "faviconUrl",
+    "icon",
+    "site_icon",
+    "siteIcon",
+  ]);
+  const looseLogo = firstStringValue(businessRecord, [
+    "logo",
+    "logo_url",
+    "logoUrl",
+    "business_logo",
+    "businessLogo",
+    "rectangular_logo",
+    "rectangularLogo",
+    "square_logo",
+    "squareLogo",
+    "favicon",
+    "favicon_url",
+    "faviconUrl",
+  ]);
+
+  if (kind === "favicon") return favicon || square || rectangular || looseLogo;
+
+  return {
+    src: rectangular || looseLogo || square,
+    isSquare: !rectangular && !looseLogo && Boolean(square),
+  };
 }
 
 function fieldString(block: CmsBlock, keys: string[]) {
@@ -200,6 +291,12 @@ function sortedNav(items: NavItem[]) {
   return items.slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 }
 
+type ModuleFilters = {
+  category?: string;
+  tag?: string;
+  search?: string;
+};
+
 type ModuleRouteIntent = {
   moduleKind: ModuleKind;
   moduleCandidates: string[];
@@ -211,12 +308,7 @@ type ModuleRouteIntent = {
   apiModule?: "faq" | "reviews";
   mode?: "list" | "calendar";
   detailSlug?: string;
-};
-
-type ModuleFilters = {
-  category?: string;
-  tag?: string;
-  search?: string;
+  filters?: ModuleFilters;
 };
 
 type ResolvedRoute =
@@ -342,6 +434,15 @@ function routeFilters(searchParams?: URLSearchParams): ModuleFilters {
   };
 }
 
+function taxonomyRouteFilter(type?: string, slug?: string): ModuleFilters | null {
+  if (!type || !slug) return null;
+  const normalizedType = normalizeKey(type);
+
+  if (normalizedType === "tag" || normalizedType === "tags") return { tag: slug };
+  if (normalizedType === "category" || normalizedType === "categories") return { category: slug };
+  return null;
+}
+
 function moduleKindForSlug(slug: string): ModuleKind {
   const normalized = normalizeKey(slug);
   if (["service", "services"].includes(normalized)) return "services";
@@ -364,13 +465,15 @@ function defaultCopyForModule(module: CmsModule, moduleKind: ModuleKind): Module
 function knownRouteIntent(slug: string): ModuleRouteIntent | null {
   const segments = slug.split("/").filter(Boolean);
   const [first, second, third] = segments;
+  const taxonomyFilter = taxonomyRouteFilter(second, third);
 
   if (first === "services") {
     return {
       moduleKind: "services",
       moduleCandidates: ["services", "service"],
       copy: routeCopy.services,
-      detailSlug: second,
+      detailSlug: taxonomyFilter ? undefined : second,
+      filters: taxonomyFilter || undefined,
     };
   }
 
@@ -379,7 +482,8 @@ function knownRouteIntent(slug: string): ModuleRouteIntent | null {
       moduleKind: "blog",
       moduleCandidates: ["blog", "blogs", "article", "articles"],
       copy: routeCopy.blog,
-      detailSlug: second === "post" ? third : second,
+      detailSlug: taxonomyFilter ? undefined : second === "post" ? third : second,
+      filters: taxonomyFilter || undefined,
     };
   }
 
@@ -388,7 +492,8 @@ function knownRouteIntent(slug: string): ModuleRouteIntent | null {
       moduleKind: "testimonials",
       moduleCandidates: ["testimonials", "testimonial", "reviews", "review"],
       copy: routeCopy.testimonials,
-      detailSlug: second,
+      detailSlug: taxonomyFilter ? undefined : second,
+      filters: taxonomyFilter || undefined,
     };
   }
 
@@ -483,6 +588,7 @@ async function buildModuleRoute(
   reviews: Review[],
   filters: ModuleFilters = {},
 ): Promise<ResolvedRoute> {
+  const routeSpecificFilters = { ...filters, ...(intent.filters || {}) };
   const module = intent.apiModule ? undefined : findModule(modules, intent.moduleCandidates);
   const copy = module ? defaultCopyForModule(module, intent.moduleKind) : intent.copy;
   const moduleSlug = module?.slug || intent.moduleCandidates[0];
@@ -522,7 +628,7 @@ async function buildModuleRoute(
 
   if (intent.moduleKind === "events") {
     const data = module
-      ? await getFeedEntriesPage(queryKey, { limit: 100, sort: "sort_order", ...filters })
+      ? await getFeedEntriesPage(queryKey, { limit: 100, sort: "sort_order", ...routeSpecificFilters })
       : { entries: [], total: 0, limit: 100, offset: 0, module: moduleSlug };
     const page = routePage(slug, copy.title, copy.description);
     return {
@@ -532,12 +638,12 @@ async function buildModuleRoute(
       entries: data.entries,
       mode: intent.mode || "list",
       copy,
-      filters,
+      filters: routeSpecificFilters,
     };
   }
 
   const data = module
-    ? await getFeedEntriesPage(queryKey, { limit: 100, sort: "sort_order", ...filters })
+    ? await getFeedEntriesPage(queryKey, { limit: 100, sort: "sort_order", ...routeSpecificFilters })
     : { entries: [], total: 0, limit: 100, offset: 0, module: moduleSlug };
   const page = routePage(slug, copy.title, copy.description);
   return {
@@ -547,7 +653,7 @@ async function buildModuleRoute(
     moduleKind: intent.moduleKind,
     entries: data.entries,
     copy,
-    filters,
+    filters: routeSpecificFilters,
   };
 }
 
@@ -675,14 +781,15 @@ function syncDocumentHead(page: CmsPage, settings: SiteSettings) {
     canonical.setAttribute("href", page.meta.canonical_url);
   }
 
-  if (settings.business.logos?.favicon) {
+  const favicon = businessLogo(settings.business, "favicon") as string;
+  if (favicon) {
     let icon = document.head.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (!icon) {
       icon = document.createElement("link");
       icon.setAttribute("rel", "icon");
       document.head.appendChild(icon);
     }
-    icon.setAttribute("href", settings.business.logos.favicon);
+    icon.setAttribute("href", favicon);
   }
 
   if (page.meta?.structured_data) {
@@ -985,6 +1092,7 @@ export default function App() {
 
   const business = settings.business;
   const companyName = business.name || settings.site.name || "Rinae Web Studio";
+  const logo = businessLogo(business);
   const footerDescription =
     business.short_description && business.short_description.trim().toLowerCase() !== companyName.trim().toLowerCase()
       ? business.short_description
@@ -1027,10 +1135,8 @@ export default function App() {
       <header className="site-header">
         <div className="header-inner">
           <a className="brand" href="/" aria-label={`${companyName} home`}>
-            {business.logos?.rectangular ? (
-              <img src={business.logos.rectangular} alt={companyName} className="brand-logo" />
-            ) : business.logos?.square ? (
-              <img src={business.logos.square} alt={companyName} className="brand-logo square" />
+            {logo.src ? (
+              <img src={logo.src} alt={companyName} className={logo.isSquare ? "brand-logo square" : "brand-logo"} />
             ) : (
               <>
                 <span className="brand-mark">{companyName.slice(0, 1)}</span>
@@ -1110,10 +1216,8 @@ export default function App() {
 
       <footer className="site-footer">
         <div className="footer-brand">
-          {business.logos?.rectangular ? (
-            <img src={business.logos.rectangular} alt={companyName} className="footer-logo" />
-          ) : business.logos?.square ? (
-            <img src={business.logos.square} alt={companyName} className="footer-logo square" />
+          {logo.src ? (
+            <img src={logo.src} alt={companyName} className={logo.isSquare ? "footer-logo square" : "footer-logo"} />
           ) : (
             <strong>{companyName}</strong>
           )}

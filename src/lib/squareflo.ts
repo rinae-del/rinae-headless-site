@@ -730,7 +730,7 @@ export const fallbackSettings: SiteSettings = {
     short_description:
       "Senior frontend execution, headless CMS delivery, and conversion-focused web systems.",
     phone: "+1 (555) 014-2048",
-    email: "hello@rinae.dev",
+    email: "",
     timezone: "America/New_York",
     logos: {},
     locations: [

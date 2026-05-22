@@ -88,9 +88,7 @@ function moduleSlug(module: CmsModule | undefined, kind: ModuleKind) {
 }
 
 function taxonomyHref(module: CmsModule | undefined, kind: ModuleKind, type: "category" | "tag", label: string) {
-  const params = new URLSearchParams();
-  params.set(type, slugifyContent(label));
-  return `${moduleListPath(moduleSlug(module, kind))}?${params.toString()}`;
+  return `${moduleListPath(moduleSlug(module, kind))}/${type}/${slugifyContent(label)}`;
 }
 
 function entryTaxonomy(entry: FeedEntry) {
@@ -321,6 +319,7 @@ export function ModuleListPage({
   const useReviewsApi = kind === "testimonials" && !module;
   const activeFilter = filters?.tag || filters?.category || filters?.search || "";
   const activeFilterType = filters?.tag ? "tagged" : filters?.category ? "in" : filters?.search ? "matching" : "";
+  const activeFilterLabel = activeFilter.replace(/-/g, " ");
   const clearFilterHref = moduleListPath(moduleSlug(module, kind));
 
   const business = settings?.business;
@@ -332,7 +331,7 @@ export function ModuleListPage({
         {activeFilter ? (
           <div className="module-filter-status">
             <span>
-              Showing {label.toLowerCase()} {activeFilterType} <strong>{activeFilter}</strong>
+              Showing {label.toLowerCase()} {activeFilterType} <strong>{activeFilterLabel}</strong>
             </span>
             <a href={clearFilterHref}>Clear filter</a>
           </div>

@@ -138,7 +138,11 @@ export function ContactForm({ form, formId, email, submitButtonPreset }: Props) 
         </p>
       ) : null}
       {status === "error" ? (
-        <p className="form-note error">The message could not send. Please use the email link.</p>
+        <p className="form-note error">
+          {email
+            ? "The message could not send. Please use the email link."
+            : "The message could not send. Please try again later."}
+        </p>
       ) : null}
     </form>
   );
