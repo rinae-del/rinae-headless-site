@@ -163,6 +163,49 @@ function TaxonomyLinks({
   );
 }
 
+function ServiceTaxonomyPanel({
+  entry,
+  module,
+}: {
+  entry: FeedEntry;
+  module?: CmsModule;
+}) {
+  const categories = feedEntryCategories(entry);
+  const tags = feedEntryTags(entry);
+
+  if (!categories.length && !tags.length) return null;
+
+  return (
+    <div className="service-taxonomy-panel" aria-label="Service taxonomy">
+      <h4>Categories</h4>
+      {categories.length ? (
+        <div className="service-taxonomy-list">
+          {categories.map((category) => (
+            <a href={taxonomyHref(module, "services", "category", category)} key={category}>
+              {category}
+            </a>
+          ))}
+        </div>
+      ) : (
+        <p>No categories set</p>
+      )}
+
+      {tags.length ? (
+        <>
+          <h4>Tags</h4>
+          <div className="service-tag-cloud">
+            {tags.map((tag) => (
+              <a href={taxonomyHref(module, "services", "tag", tag)} key={tag} rel="tag">
+                {tag}
+              </a>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 function EntryMeta({ entry, module, kind }: { entry: FeedEntry; module?: CmsModule; kind: ModuleKind }) {
   const date = formatDate(feedEntryDate(entry));
   const location = feedEntryLocation(entry);
@@ -443,6 +486,7 @@ export function ModuleDetailPage({ module, kind, entry, related, copy, settings,
             <aside className="module-detail-sidebar">
               <div className="sidebar-cta-card sidebar-form-card">
                 <h3>Interested in this Service?</h3>
+                <ServiceTaxonomyPanel entry={entry} module={module} />
                 <p>Send a quick note and we will follow up with details for {title}.</p>
                 <ContactForm
                   compact

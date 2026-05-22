@@ -3145,6 +3145,61 @@ img {
   margin-top: 22px;
 }
 
+.service-taxonomy-panel {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-line) 70%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--color-line) 70%, transparent);
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 22px;
+  padding: 16px 0 18px;
+}
+
+.service-taxonomy-panel h4 {
+  color: var(--color-ink) !important;
+  font-size: 0.82rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em;
+  margin: 0 !important;
+  text-transform: uppercase;
+}
+
+.service-taxonomy-panel p {
+  color: var(--color-muted) !important;
+  font-size: 0.86rem !important;
+  margin: 0 !important;
+}
+
+.service-taxonomy-list,
+.service-tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.service-taxonomy-list a,
+.service-tag-cloud a {
+  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-panel));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 16%, var(--color-line));
+  border-radius: 999px;
+  color: var(--color-accent-deep);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 8px 10px;
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.service-taxonomy-list a:hover,
+.service-taxonomy-list a:focus-visible,
+.service-tag-cloud a:hover,
+.service-tag-cloud a:focus-visible {
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-panel));
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-line));
+  color: var(--color-accent);
+  outline: none;
+  transform: translateY(-1px);
+}
+
 /* Features List Card */
 .sidebar-features-card {
   background: color-mix(in srgb, var(--color-page-bg) 40%, var(--color-panel)) !important;
