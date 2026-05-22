@@ -995,8 +995,8 @@ export default function App() {
     [headerCta, navItems],
   );
   const footerItems = useMemo(
-    () => sortedNav(footerNavigation.length ? footerNavigation : navigation),
-    [footerNavigation, navigation],
+    () => sortedNav(footerNavigation),
+    [footerNavigation],
   );
   const { hero, left, right } = useMemo(() => splitHero(page), [page]);
   const context = useMemo<CmsRenderContext>(
@@ -1123,7 +1123,6 @@ export default function App() {
             ))}
           </nav>
         ) : null}
-        <a href="#home">Back to top</a>
       </footer>
     </div>
   );
