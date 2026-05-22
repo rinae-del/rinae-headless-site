@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -34,6 +35,12 @@ type ModulePageCopy = {
   description?: string;
 };
 
+type ModuleFilters = {
+  category?: string;
+  tag?: string;
+  search?: string;
+};
+
 type ModuleListProps = {
   module?: CmsModule;
   kind: ModuleKind;
@@ -42,6 +49,7 @@ type ModuleListProps = {
   reviews?: Review[];
   settings: SiteSettings;
   copy: ModulePageCopy;
+  filters?: ModuleFilters;
 };
 
 type ModuleDetailProps = {
@@ -78,6 +86,20 @@ function moduleSlug(module: CmsModule | undefined, kind: ModuleKind) {
   return kind;
 }
 
+function taxonomyHref(module: CmsModule | undefined, kind: ModuleKind, type: "category" | "tag", label: string) {
+  const params = new URLSearchParams();
+  params.set(type, label);
+  return `${moduleListPath(moduleSlug(module, kind))}?${params.toString()}`;
+}
+
+function entryTaxonomy(entry: FeedEntry) {
+  const tags = feedEntryTags(entry);
+  const categories = feedEntryCategories(entry);
+  return tags.length
+    ? tags.map((label) => ({ label, type: "tag" as const }))
+    : categories.map((label) => ({ label, type: "category" as const }));
+}
+
 function entrySummary(entry: FeedEntry) {
   return feedEntryDescription(entry) || stripHtml(feedEntryBodyHtml(entry)).slice(0, 220);
 }
@@ -109,11 +131,38 @@ function EmptyState({ label }: { label: string }) {
   );
 }
 
-function EntryMeta({ entry, kind }: { entry: FeedEntry; kind: ModuleKind }) {
+function TaxonomyLinks({
+  entry,
+  module,
+  kind,
+}: {
+  entry: FeedEntry;
+  module?: CmsModule;
+  kind: ModuleKind;
+}) {
+  const items = entryTaxonomy(entry);
+  if (!items.length) return null;
+
+  return (
+    <span className={kind === "services" ? "entry-taxonomy entry-taxonomy-services" : "entry-taxonomy"}>
+      <Tag aria-hidden="true" size={13} />
+      <span className="entry-taxonomy-links">
+        {items.map((item, index) => (
+          <Fragment key={`${item.type}-${item.label}`}>
+            {index > 0 ? <span className="entry-taxonomy-separator">/</span> : null}
+            <a href={taxonomyHref(module, kind, item.type, item.label)} rel={item.type === "tag" ? "tag" : undefined}>
+              {item.label}
+            </a>
+          </Fragment>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+function EntryMeta({ entry, module, kind }: { entry: FeedEntry; module?: CmsModule; kind: ModuleKind }) {
   const date = formatDate(feedEntryDate(entry));
   const location = feedEntryLocation(entry);
-  const categories = feedEntryCategories(entry);
-  const tags = feedEntryTags(entry);
   const author = feedEntryAuthor(entry);
 
   return (
@@ -131,20 +180,7 @@ function EntryMeta({ entry, kind }: { entry: FeedEntry; kind: ModuleKind }) {
         </span>
       ) : null}
       {kind === "blog" && author ? <span>{author}</span> : null}
-      {categories.slice(0, 2).map((category) => (
-        <span key={category}>
-          <Tag aria-hidden="true" size={16} />
-          {category}
-        </span>
-      ))}
-      {!categories.length
-        ? tags.slice(0, 2).map((tag) => (
-            <span key={tag}>
-              <Tag aria-hidden="true" size={16} />
-              {tag}
-            </span>
-          ))
-        : null}
+      <TaxonomyLinks entry={entry} module={module} kind={kind} />
     </div>
   );
 }
@@ -184,7 +220,7 @@ function EntryCard({
     <article className={`module-card module-card-${kind}`}>
       {image ? <img className="card-image" src={image} alt={title} loading="lazy" /> : null}
       <div className="module-card-body">
-        <EntryMeta entry={entry} kind={kind} />
+        <EntryMeta entry={entry} module={module} kind={kind} />
         <Rating value={entryRating(entry)} />
         <h2>{title}</h2>
         {summary ? <p>{summary}</p> : null}
@@ -258,6 +294,7 @@ function ServiceListRow({
         <h3>
           <a href={href}>{title}</a>
         </h3>
+        <TaxonomyLinks entry={entry} module={module} kind="services" />
         {summary ? <p>{summary}</p> : null}
         <a className="service-list-row-link" href={href}>
           <span>View details</span>
@@ -276,10 +313,14 @@ export function ModuleListPage({
   reviews = [],
   copy,
   settings,
+  filters,
 }: ModuleListProps) {
   const label = module?.name || copy.title;
   const useFaqApi = kind === "faq" && !module;
   const useReviewsApi = kind === "testimonials" && !module;
+  const activeFilter = filters?.tag || filters?.category || filters?.search || "";
+  const activeFilterType = filters?.tag ? "tagged" : filters?.category ? "in" : filters?.search ? "matching" : "";
+  const clearFilterHref = moduleListPath(moduleSlug(module, kind));
 
   const business = settings?.business;
 
@@ -287,6 +328,14 @@ export function ModuleListPage({
     <div className="page-blocks">
       <PageHero copy={copy} kind={kind} />
       <section className="section module-list-section">
+        {activeFilter ? (
+          <div className="module-filter-status">
+            <span>
+              Showing {label.toLowerCase()} {activeFilterType} <strong>{activeFilter}</strong>
+            </span>
+            <a href={clearFilterHref}>Clear filter</a>
+          </div>
+        ) : null}
         {useFaqApi ? (
           <FaqApiList faqs={faqs} />
         ) : useReviewsApi ? (
@@ -371,7 +420,7 @@ export function ModuleDetailPage({ module, kind, entry, related, copy, settings 
         <div className="module-detail-layout">
           <div className="module-detail-main">
             <header>
-              <EntryMeta entry={entry} kind={kind} />
+              <EntryMeta entry={entry} module={module} kind={kind} />
               <Rating value={entryRating(entry)} />
               <h1>{title}</h1>
               {summary ? <p className="detail-summary">{summary}</p> : null}

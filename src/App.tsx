@@ -213,6 +213,12 @@ type ModuleRouteIntent = {
   detailSlug?: string;
 };
 
+type ModuleFilters = {
+  category?: string;
+  tag?: string;
+  search?: string;
+};
+
 type ResolvedRoute =
   | { type: "page"; page: CmsPage }
   | {
@@ -222,6 +228,7 @@ type ResolvedRoute =
       moduleKind: ModuleKind;
       entries: FeedEntry[];
       copy: ModuleRouteIntent["copy"];
+      filters?: ModuleFilters;
     }
   | {
       type: "module-detail";
@@ -239,6 +246,7 @@ type ResolvedRoute =
       entries: FeedEntry[];
       mode: "list" | "calendar";
       copy: ModuleRouteIntent["copy"];
+      filters?: ModuleFilters;
     };
 
 const routeCopy: Record<Exclude<ModuleKind, "generic">, ModuleRouteIntent["copy"]> = {
@@ -322,6 +330,16 @@ function routePage(slug: string, title: string, description?: string, image?: st
 
 function normalizePath(pathname: string) {
   return decodeURIComponent(pathname.split(/[?#]/)[0] || "/").replace(/^\/+|\/+$/g, "");
+}
+
+function routeFilters(searchParams?: URLSearchParams): ModuleFilters {
+  if (!searchParams) return {};
+
+  return {
+    category: searchParams.get("category") || undefined,
+    tag: searchParams.get("tag") || undefined,
+    search: searchParams.get("search") || undefined,
+  };
 }
 
 function moduleKindForSlug(slug: string): ModuleKind {
@@ -463,6 +481,7 @@ async function buildModuleRoute(
   modules: CmsModule[],
   faqs: Faq[],
   reviews: Review[],
+  filters: ModuleFilters = {},
 ): Promise<ResolvedRoute> {
   const module = intent.apiModule ? undefined : findModule(modules, intent.moduleCandidates);
   const copy = module ? defaultCopyForModule(module, intent.moduleKind) : intent.copy;
@@ -503,7 +522,7 @@ async function buildModuleRoute(
 
   if (intent.moduleKind === "events") {
     const data = module
-      ? await getFeedEntriesPage(queryKey, { limit: 100, sort: "sort_order" })
+      ? await getFeedEntriesPage(queryKey, { limit: 100, sort: "sort_order", ...filters })
       : { entries: [], total: 0, limit: 100, offset: 0, module: moduleSlug };
     const page = routePage(slug, copy.title, copy.description);
     return {
@@ -513,11 +532,12 @@ async function buildModuleRoute(
       entries: data.entries,
       mode: intent.mode || "list",
       copy,
+      filters,
     };
   }
 
   const data = module
-    ? await getFeedEntriesPage(queryKey, { limit: 100, sort: "sort_order" })
+    ? await getFeedEntriesPage(queryKey, { limit: 100, sort: "sort_order", ...filters })
     : { entries: [], total: 0, limit: 100, offset: 0, module: moduleSlug };
   const page = routePage(slug, copy.title, copy.description);
   return {
@@ -527,6 +547,7 @@ async function buildModuleRoute(
     moduleKind: intent.moduleKind,
     entries: data.entries,
     copy,
+    filters,
   };
 }
 
@@ -536,12 +557,14 @@ async function resolveRoute(
   modules: CmsModule[],
   faqs: Faq[],
   reviews: Review[],
+  searchParams?: URLSearchParams,
 ): Promise<ResolvedRoute> {
   const slug = normalizePath(pathname);
+  const filters = routeFilters(searchParams);
   if (!slug) return { type: "page", page: findCmsPage(pages, slug) || fallbackHomePage };
 
   const knownIntent = knownRouteIntent(slug);
-  if (knownIntent) return buildModuleRoute(slug, knownIntent, modules, faqs, reviews);
+  if (knownIntent) return buildModuleRoute(slug, knownIntent, modules, faqs, reviews, filters);
 
   const page = findCmsPage(pages, slug);
   if (page) return { type: "page", page };
@@ -561,6 +584,7 @@ async function resolveRoute(
         modules,
         faqs,
         reviews,
+        filters,
       );
     }
   }
@@ -853,7 +877,14 @@ export default function App() {
             getFaqs(),
             getReviews(),
           ]);
-        const nextRoute = await resolveRoute(pathname, pages, modules, nextFaqs, nextReviews);
+        const nextRoute = await resolveRoute(
+          pathname,
+          pages,
+          modules,
+          nextFaqs,
+          nextReviews,
+          new URLSearchParams(window.location.search),
+        );
         const nextPage = nextRoute.page;
 
         const inferredFormId = contactFormId || extractFormId(nextPage);
@@ -997,9 +1028,11 @@ export default function App() {
             ) : business.logos?.square ? (
               <img src={business.logos.square} alt={companyName} className="brand-logo square" />
             ) : (
-              <span className="brand-mark">{companyName.slice(0, 1)}</span>
+              <>
+                <span className="brand-mark">{companyName.slice(0, 1)}</span>
+                <span className="brand-name">{companyName}</span>
+              </>
             )}
-            <span className="brand-name">{companyName}</span>
           </a>
 
           <nav className="nav-menu" aria-label="Primary navigation">
@@ -1050,6 +1083,7 @@ export default function App() {
             reviews={reviews}
             settings={settings}
             copy={route.copy}
+            filters={route.filters}
           />
         ) : route.type === "module-detail" ? (
           <ModuleDetailPage
