@@ -1376,20 +1376,20 @@ function applyFallbackFeedParams(
   params?: Record<string, string | number | boolean | undefined>,
 ) {
   let result = entries.slice();
-  const category = params?.category ? String(params.category).toLowerCase() : "";
-  const tag = params?.tag ? String(params.tag).toLowerCase() : "";
+  const category = params?.category ? slugifyContent(String(params.category)) : "";
+  const tag = params?.tag ? slugifyContent(String(params.tag)) : "";
   const search = params?.search ? String(params.search).toLowerCase() : "";
   const sort = params?.sort ? String(params.sort) : "sort_order";
 
   if (category) {
     result = result.filter((entry) =>
-      feedEntryCategories(entry).some((item) => item.toLowerCase() === category),
+      feedEntryCategories(entry).some((item) => slugifyContent(item) === category),
     );
   }
 
   if (tag) {
     result = result.filter((entry) =>
-      feedEntryTags(entry).some((item) => item.toLowerCase() === tag),
+      feedEntryTags(entry).some((item) => slugifyContent(item) === tag),
     );
   }
 
@@ -1440,23 +1440,42 @@ export async function getFeedEntriesPage(
 ): Promise<FeedEntriesPage> {
   const limit = Number(params?.limit || 12);
   const offset = Number(params?.offset || 0);
+  const taxonomyParams = {
+    category: params?.category,
+    tag: params?.tag,
+  };
+  const shouldFilterTaxonomyLocally = Boolean(taxonomyParams.category || taxonomyParams.tag);
   if (!module) {
     return { entries: [], total: 0, limit, offset, module: "" };
   }
 
   try {
+    const cmsParams = { ...params };
+    if (shouldFilterTaxonomyLocally) {
+      delete cmsParams.category;
+      delete cmsParams.tag;
+      cmsParams.limit = 100;
+      cmsParams.offset = 0;
+    }
     const data = await cms<FeedEntriesPage>("/feed-entries", {
       module,
       limit,
       offset,
       sort: "sort_order",
-      ...params,
+      ...cmsParams,
     });
+    const filteredEntries = shouldFilterTaxonomyLocally
+      ? applyFallbackFeedParams(data.entries || [], { ...taxonomyParams, sort: params?.sort || "sort_order" })
+      : data.entries || [];
     return {
-      entries: data.entries || [],
-      total: data.total || data.entries?.length || 0,
-      limit: data.limit || limit,
-      offset: data.offset || offset,
+      entries: shouldFilterTaxonomyLocally
+        ? filteredEntries.slice(offset, offset + limit)
+        : filteredEntries,
+      total: shouldFilterTaxonomyLocally
+        ? filteredEntries.length
+        : data.total || filteredEntries.length || 0,
+      limit: shouldFilterTaxonomyLocally ? limit : data.limit || limit,
+      offset: shouldFilterTaxonomyLocally ? offset : data.offset || offset,
       module: data.module || module,
     };
   } catch {

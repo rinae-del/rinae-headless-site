@@ -19,6 +19,7 @@ import {
   moduleCalendarPath,
   moduleEntryPath,
   moduleListPath,
+  slugifyContent,
   stripHtml,
   type CmsModule,
   type Faq,
@@ -88,7 +89,7 @@ function moduleSlug(module: CmsModule | undefined, kind: ModuleKind) {
 
 function taxonomyHref(module: CmsModule | undefined, kind: ModuleKind, type: "category" | "tag", label: string) {
   const params = new URLSearchParams();
-  params.set(type, label);
+  params.set(type, slugifyContent(label));
   return `${moduleListPath(moduleSlug(module, kind))}?${params.toString()}`;
 }
 
