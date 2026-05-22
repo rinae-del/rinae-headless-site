@@ -53,6 +53,8 @@ type ModuleListProps = {
   settings: SiteSettings;
   copy: ModulePageCopy;
   filters?: ModuleFilters;
+  form?: CmsForm | null;
+  formId?: string;
 };
 
 type ModuleDetailProps = {
@@ -360,6 +362,8 @@ export function ModuleListPage({
   copy,
   settings,
   filters,
+  form,
+  formId,
 }: ModuleListProps) {
   const label = module?.name || copy.title;
   const useFaqApi = kind === "faq" && !module;
@@ -399,36 +403,22 @@ export function ModuleListPage({
             
             {business ? (
               <aside className="module-detail-sidebar">
-                <div className="sidebar-cta-card">
+                <div className="sidebar-cta-card sidebar-form-card">
                   <h3>Interested in our Services?</h3>
-                  <p>Get in touch with our team of experts to discuss how we can help you achieve your goals.</p>
+                  <p>Tell us what you need and we will point you to the right service.</p>
                   
-                  <div className="sidebar-contact-info">
-                    {business.phone ? (
-                      <a href={`tel:${business.phone}`} className="sidebar-contact-item">
-                        <span className="contact-icon-wrapper">📞</span>
-                        <div>
-                          <span className="contact-label">Call Us</span>
-                          <strong className="contact-value">{business.phone}</strong>
-                        </div>
-                      </a>
-                    ) : null}
-                    
-                    {business.email ? (
-                      <a href={`mailto:${business.email}`} className="sidebar-contact-item">
-                        <span className="contact-icon-wrapper">✉️</span>
-                        <div>
-                          <span className="contact-label">Email Us</span>
-                          <strong className="contact-value">{business.email}</strong>
-                        </div>
-                      </a>
-                    ) : null}
-                  </div>
-                  
-                  <a href="/contact" className="btn btn-primary sidebar-action-btn">
-                    <span>Get a Free Quote</span>
-                    <ArrowUpRight size={16} />
-                  </a>
+                  <ContactForm
+                    compact
+                    email={business.email}
+                    form={form || null}
+                    formId={formId}
+                    submitButtonPreset={settings?.design?.forms?.submitButtonPreset?.toString()}
+                    extraData={{
+                      inquiry_context: "services_listing",
+                      services_url:
+                        typeof window !== "undefined" ? window.location.href : moduleListPath(moduleSlug(module, "services")),
+                    }}
+                  />
                 </div>
               </aside>
             ) : null}

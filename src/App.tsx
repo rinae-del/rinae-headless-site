@@ -258,6 +258,38 @@ function splitHero(page: CmsPage): {
   };
 }
 
+function isHomePage(page: CmsPage) {
+  return Boolean(page.is_home || slugify(page.slug) === "home" || !slugify(page.slug));
+}
+
+function hasContactSection(page: CmsPage) {
+  let found = false;
+  const { left, right } = pageBlocks(page);
+
+  walkBlocks([...left, ...right], (block) => {
+    if (found || block.type !== "section") return;
+    const slug = normalizeKey(slugify(block.section_slug || block.section_name || ""));
+    found = slug.includes("contact") || slug.includes("form");
+  });
+
+  return found;
+}
+
+function homeContactBlock(): CmsBlock {
+  return {
+    type: "section",
+    id: "derived-home-contact",
+    section_slug: "contact",
+    section_name: "Contact Us",
+    fields: [
+      { key: "eyebrow", value: "Contact" },
+      { key: "heading", value: "Contact Us" },
+      { key: "description", source_field: "business_description", locked: true, value: "" },
+      { key: "form_id", value: contactFormId },
+    ],
+  };
+}
+
 function extractFormId(page: CmsPage) {
   let found = "";
   const { left, right } = pageBlocks(page);
@@ -1201,6 +1233,11 @@ export default function App() {
           <>
             <ContentBlock block={hero} context={context} />
             <PageContent left={left} right={right} context={context} />
+            {isHomePage(page) && !hasContactSection(page) ? (
+              <div className="page-blocks">
+                <ContentBlock block={homeContactBlock()} context={context} />
+              </div>
+            ) : null}
           </>
         ) : route.type === "module-list" ? (
           <ModuleListPage
@@ -1212,6 +1249,8 @@ export default function App() {
             settings={settings}
             copy={route.copy}
             filters={route.filters}
+            form={form}
+            formId={activeFormId}
           />
         ) : route.type === "module-detail" ? (
           <ModuleDetailPage
